@@ -6,8 +6,6 @@
 | 版本号 | V1.0 |
 | 编制日期 | 2026-07-22 |
 
----
-
 ## 1. 简介
 
 ### 1.1 目的
@@ -54,8 +52,6 @@
 | Linux `fanotify(7)` | 非 SMB 通道内核接口 |
 | Samba VFS API | SMB 回调 ABI |
 
----
-
 ## 2. 技术规格与技术选型
 
 ### 2.1 技术规格
@@ -81,8 +77,6 @@
 | fanotify 而非内核模块/eBPF | 内核原生接口，无需 out-of-tree 模块，权限事件可同步应答 ALLOW/DENY |
 | SQLite 嵌入式库 | 单节点部署，状态只在本机一致 |
 | YARA | 内容特征检测的事实标准 |
-
----
 
 ## 3. 架构目标和约束
 
@@ -123,8 +117,6 @@
 
 因此，严格模式优先数据可恢复性，宽松模式优先业务连续性，两者不能同时宣称绝对“零影响”。
 
----
-
 ## 4. 用例视图
 
 | 用例 | 当前代码路径 | 状态 |
@@ -140,11 +132,7 @@
 | UC-9 邮件告警 | 事件进入邮件队列并定时汇总发送 | 规划，当前无代码 |
 | UC-10 签名规则升级 | 校验离线/在线规则包并原子替换 | 规划，当前只有 YARA reload 能力 |
 
----
-
 ## 5. 逻辑视图
-
-### 5.1 系统架构
 
 ```mermaid
 flowchart LR
@@ -207,11 +195,21 @@ flowchart LR
 	style SYS fill:#f4f8ff,stroke:#4a6fa5
 ```
 
-### 5.2 组件分解
+## 6. 实现视图
+
+### 6.1 概述
+
+实现模型分为三层，依赖方向自上而下，禁止反向依赖：
+
+| 层 | 内容 | 加入规则与边界 |
+|---|---|---|
+| L1 拦截层 | VFS 回调、fanotify 双 fd 基础设施、FTP/Cloud/Local 通道 handler | 只做拦截、前像、身份解析和上报，**不做策略判断**；经定长协议进入策略层，不直接读写 SQLite |
+| L2 策略层 | process_msg 管线、session、scorer、entropy、YARA、blocker | 只依赖SQLite/YARA 库；不直接调用 Samba API，不感知内核接口细节 |
+| L3 持久化与工具层 | sqlite db文件，文件恢复工具、规则升级工具 | 只依赖公共持久化格式和运行文件布局，不链接 daemon 内部模块 |
 
 ```mermaid
 flowchart TB
-	subgraph Interception[拦截与采集层]
+	subgraph Interception[拦截层]
 		VFS[VFS callbacks]
 		PERM[fanotify permission thread]
 		NOTIFY[fanotify/inotify notify drain]
@@ -229,7 +227,7 @@ flowchart TB
 		BLOCK[blocker]
 	end
 
-	subgraph Persistence[持久化与恢复层]
+	subgraph Persistence[持久化与工具层]
 		DB[(rguard_db / SQLite)]
 		PRE[(backups)]
 		RESTORE[restore launcher]
@@ -250,22 +248,11 @@ flowchart TB
 	CLI --> PRE & QUAR & DB
 ```
 
-### 5.3 分层与依赖
+### 6.2 拦截层
 
-| 层 | 模块 | 允许依赖 |
-|---|---|---|
-| L1 拦截层 | VFS、fanotify、通道 handler | 公共层、Samba/Linux API；通过协议进入策略层 |
-| L2 策略层 | main/process_msg、session、scorer、entropy、YARA、blocker | 公共层、SQLite/YARA；不直接调用 Samba API |
-| L3 公共层 | protocol、types、config、db、log、backup、hash | libc、SQLite、cJSON |
-| L4 工具层 | recover | 公共持久化格式和运行文件 |
+#### 6.2.1 SMB VFS 模块
 
-实际代码基本遵守单向依赖，但 `gfrguardd_main.c` 同时承担协议接收、策略编排、内容扫描、数据库写入和动作触发，属于高耦合控制器。
-
----
-
-## 6. SMB VFS 架构
-
-### 6.1 已注册回调
+已注册回调：
 
 | 回调 | 当前职责 |
 |---|---|
@@ -279,61 +266,48 @@ flowchart TB
 | mkdirat | 检查 blocked 并上报新建目录事件 |
 | close | 对最多 64 MiB 的前像/当前文件做全量 FNV-1a 比对，上报 CLOSE |
 
-### 6.2 架构图
+时序图：
 
 ```mermaid
-flowchart TB
-	CL[SMB 客户端]
+sequenceDiagram
+	participant CL as SMB 客户端
+	participant VFS as vfs_gfrguard.so
+	participant NEXT as Samba 下层<br/>NEXT_*
+	participant STORE as backup store
+	participant DMN as gfrguardd
 
-	BLK[("/run/gfrguardd/blocked<br/>IP 阻断列表")]
-	DMN[gfrguardd<br/>process_msg 会话评分]
-	EVT[事件上报<br/>WRITE / RENAME / DELETE<br/>TRUNCATE / CLOSE / NEW_FILE]
-
-    subgraph vfsguard
-		direction TB
-        HOOK[VFS 回调钩子<br/>connect / openat / pwrite / ftruncate<br/>renameat / unlinkat / mkdirat / close]
-		BLKGATE{blocked 文件<br/>IP 命中?}
-		DENY[EACCES 拒绝<br/>+ VFS_BLOCKED 遥测]
-        RISKY{既有常规文件的<br/>破坏性操作?<br/>写非append / CREAT+TRUNC<br/>truncate / unlink}
-		PRE[first-time 前像备份<br/>first copy wins · O_EXCL 并发收敛<br/>reflink → copy_file_range → read/write]
-		STORE[(backup store<br/>backups/share/relative)]
-		DENY2[拒绝操作<br/>ENOSPC / EACCES]
-		NEXT[直通 NEXT_*<br/>业务零干预]
-        CMP[close: 前像 vs 当前文件<br/>等长 ≤64MiB 时<br/>全量 FNV-1a 比较]
-		CS[CONTENT_SAME<br/>幂等覆盖降噪]
-    end
-
-	CL --> HOOK
-    HOOK -->|每次操作检查| BLKGATE{blocked 文件<br/>IP 命中?}
-    BLKGATE -->|是| DENY[EACCES 拒绝<br/>+ VFS_BLOCKED 遥测]
-    BLKGATE -->|否| RISKY
-    RISKY -->|是| PRE[first-time 前像备份<br/>first copy wins · O_EXCL 并发收敛<br/>reflink → copy_file_range → read/write]
-    RISKY -->|否| NEXT[直通 NEXT_*<br/>业务零干预]
-    PRE --> STORE[(backup store<br/>backups/share/relative)]
-    PRE -->|失败 且 strict| DENY2[拒绝操作<br/>ENOSPC / EACCES]
-    PRE -->|成功 或 permissive| NEXT
-    HOOK -->|close| CMP
-    CMP -->|内容一致| CS[CONTENT_SAME<br/>幂等覆盖降噪]
-    CMP -->|不一致或无前像| EVT
-    CS --> EVT[事件上报<br/>WRITE / RENAME / DELETE<br/>TRUNCATE / CLOSE / NEW_FILE]
-    NEXT --> EVT
-
-    EVT ==>|AF_UNIX DGRAM| DMN[gfrguardd<br/>process_msg 会话评分]
-    DMN ==>|CRITICAL → 写入阻断 IP| BLK
-	BLK -.->|mtime 失效缓存| BLKGATE
+	CL->>VFS: openat / pwrite / ftruncate<br/>renameat / unlinkat / mkdirat
+	VFS->>VFS: 检查 blocked（mtime 失效缓存）
+	alt blocked 命中
+		VFS-->>CL: EACCES + VFS_BLOCKED 遥测
+	else 破坏性操作
+		VFS->>STORE: 前像备份 first copy wins
+		alt 备份失败 且 strict
+			VFS-->>CL: ENOSPC / EACCES
+		else 成功 / permissive
+			VFS->>NEXT: 直通业务操作
+		end
+	else 非破坏性操作
+		VFS->>NEXT: 直通业务操作
+	end
+	VFS-)DMN: AF_UNIX DGRAM 事件上报
+	CL->>VFS: close
+	VFS->>VFS: 前像 vs 当前 FNV-1a ≤64MiB
+	VFS-)DMN: CLOSE / CONTENT_SAME
+	DMN->>DMN: process_msg 会话评分（见 6.3）
 ```
 
----
+#### 6.2.2 fanotify通道
 
-## 7. fanotify 与非 SMB 通道
-
-### 7.1 双事件入口
+双事件入口：
 
 | 入口 | 线程/循环 | 作用 |
 |---|---|---|
 | permission fd | 独立 pthread | 处理 `FAN_OPEN_PERM`，必须向内核回复 ALLOW/DENY |
 | notification fd | daemon 主循环 drain | 处理 CLOSE_WRITE、MODIFY、CREATE、DELETE、MOVE 等异步事件 |
 | socketpair | permission 线程 → 主线程 | 把归一化消息交给统一 `process_msg`，避免在线程中修改会话/SQLite |
+
+时序图：
 
 ```mermaid
 sequenceDiagram
@@ -354,7 +328,7 @@ sequenceDiagram
 	M->>M: process_msg
 ```
 
-### 7.2 通知归一化
+通知归一化：
 
 | 内核事件 | 归一化事件 | 关键标志/处理 |
 |---|---|---|
@@ -364,56 +338,43 @@ sequenceDiagram
 | DELETE | DELETE | 事后检测；内核无删除 permission 事件 |
 | FAN_RENAME | RENAME | 解析 OLD_DFID_NAME 与 NEW_DFID_NAME；保留源路径、目标完整路径和目标名用于扩展名分析 |
 
-### 7.3 通道身份和动作
+### 6.3 策略层
 
-| 通道 | 识别来源 | 会话表达 | 阻断手段 |
-|---|---|---|---|
-| FTP | monitor path、`/proc/<pid>`、vsftpd 信息和 socket 线索 | FTP 用户/客户端 IP，失败时 unknown | FAN_DENY；校验 PID starttime 后 SIGTERM/SIGKILL |
-| Cloud | task local path、rclone cmdline/任务配置 | `cloud@<task>` 等伪身份 | 删除/禁用 neo-croner 任务并终止相关进程；任务信息入库 |
-| Host | monitor path、comm/exe/starttime | 本地进程名和 PID 身份 | FAN_DENY；PID 防复用后终止进程/进程组 |
-
-身份解析依赖 `/proc` 的瞬时状态。进程退出、权限不足或命令行不符合预期时会降级为 unknown，降低会话隔离精度。
-
----
-
-## 8. 策略引擎
-
-### 8.1 `process_msg` 实际流程
+#### 6.3.1 
 
 ```mermaid
-flowchart TD
-	A[receive event_msg] --> B{VFS_BLOCKED?}
-	B -->|是| BT[记录遥测/事件并返回]
-	B -->|否| C{master 和 source 开关开启?}
-	C -->|否| R[返回]
-	C -->|是| D{扩展名过滤通过?}
-	D -->|否| R
-	D -->|是| E{exception/whitelist?}
-	E -->|是| R
-	E -->|否| F{blacklist?}
-	F -->|是| FB[立即标记会话并执行 blocker]
-	F -->|否| G[获取/创建 session 和 event_id]
-	G --> H[持久化 BACKED_UP/BACKUP_FAILED]
-	H --> I[扩展名变化与勒索扩展名分析]
-	I --> J[按条件同步 entropy/YARA]
-	J --> K[滑动窗口 + session_update]
-	K --> L{普通 OPEN/WRITE/TRUNCATE 延迟评分?}
-	L -->|是| N[更新事件统计]
-	L -->|否| M[scorer_calculate]
-	M --> N
-	N --> O[记录 NEW_FILE]
-	O --> P{CRITICAL 且未阻断?}
-	P -->|否| Z[结束]
-	P -->|是| Q[blocker + 自动黑名单持久化]
-	Q --> S[触发自动恢复]
+sequenceDiagram
+	participant IN as 事件来源<br/>DGRAM / socketpair / notify
+	participant M as process_msg
+	participant S as session + scorer
+	participant C as entropy / YARA
+	participant DB as SQLite
+	participant B as blocker
+
+	IN->>M: rguard_event_msg
+	alt VFS_BLOCKED 遥测
+		M->>DB: 记录事件并返回
+	else 开关 / 扩展名 / 例外 / 白名单 拦截
+		M-->>IN: 丢弃，不评分
+	else blacklist 命中
+		M->>B: 立即标记会话并阻断
+	else 正常事件
+		M->>S: 获取/创建 session + event_id
+		M->>DB: 持久化 BACKED_UP / BACKUP_FAILED
+		M->>M: 扩展名变化与勒索扩展名分析
+		opt 命中内容信号条件
+			M->>C: 同步 entropy / YARA（主线程）
+		end
+		M->>S: 滑动窗口更新 + scorer_calculate
+		M->>DB: 记录 NEW_FILE / 事件统计
+		opt CRITICAL 且未阻断
+			M->>B: blocker + 自动黑名单持久化
+			M->>M: fork 延迟恢复（见 6.5）
+		end
+	end
 ```
 
-管线顺序有两个重要后果：
-
-1. 扩展名过滤、例外和白名单在前像元数据入库之前执行。VFS 可能已经创建磁盘前像，但 daemon 因策略提前返回而不写 `protected_files`，造成磁盘前像与恢复索引不一致。
-2. 内容扫描和 SQLite 写入都在主线程执行。YARA 扫描耗时会推迟 DGRAM、fanotify 队列、timerfd 和恢复子进程回收。
-
-### 8.2 会话状态
+#### 6.3.2 会话状态
 
 `session_table` 使用 1024 槽 FNV-1a 哈希和线性探测。会话保存：
 
@@ -426,7 +387,7 @@ flowchart TD
 
 短窗口重置操作计数，长窗口重置目录集合、事件 ID 和风险等级，但阻断状态不自动清除。Cloud 使用更长的独立窗口。
 
-### 8.3 评分模型
+#### 6.3.3 评分模型
 
 基础分数为：
 
@@ -450,7 +411,7 @@ $$
 - 任一 YARA 命中把分数至少提升到 critical；
 - 普通 OPEN/WRITE/TRUNCATE 延迟评分，等待 CLOSE 或更强信号，降低批量同内容写误报。
 
-### 8.4 内容信号的实际触发
+#### 6.3.4 内容信号的实际触发
 
 | 信号 | SMB | FTP/Cloud/Host | 执行位置 |
 |---|---|---|---|
@@ -458,11 +419,11 @@ $$
 | HIGH_ENTROPY | OPEN/WRITE/TRUNCATE | CREATE/MODIFY | daemon 主线程，同步采样前 8 KiB |
 | YARA_MATCH | CLOSE | CLOSE_WRITE | daemon 主线程，同步扫描 |
 
----
+### 6.4 持久化与工具层
 
-## 9. 阻断与恢复
+#### 6.4.1 阻断与恢复
 
-### 9.1 阻断与恢复时序
+阻断动作由策略层 blocker 执行，恢复由工具层 `gfrguard-recover` 完成
 
 会话风险状态共五级：Normal / Suspicious / High / Critical / Blocked，阈值来自策略配置。越过 warn/high 阈值只改变风险等级，不产生动作；到达 Critical（或任一 YARA 命中直接提升）才进入阻断流程。完整时序：
 
@@ -501,16 +462,47 @@ sequenceDiagram
 
 恢复对象由 `event_id` 下的 `protected_files` 和 `created_files` 决定，不依赖逐文件损坏判定。隔离对象是风险事件关联文件的恢复前当前版本，以及事件窗口中新建的常规文件；隔离不表示系统已经对该文件形成 damaged/corrupted/encrypted 判定。
 
-### 9.2 恢复一致性边界
+#### 6.4.2 规则升级
 
-- 前像磁盘路径不包含 event_id，而 DB 唯一键是 `(event_id, original_path)`；跨窗口复用同一旧前像可能使多个事件指向同一文件。
-- 成功恢复后删除前像；并发恢复同一路径可能竞争。
-- 自动恢复以 fork/exec 解耦主循环，但当前没有同 event_id 去重锁。
-- 原文件先隔离再恢复，跨文件系统时退化为 copy + unlink，不具备整事件原子性。
+定位：独立 CLI（`gfrguard-rule-update`），按需执行，不常驻。状态：**规划**——当前仓库仅有 daemon 侧 SIGHUP / `yara_engine_reload` 热重载能力，升级器本体无代码。
 
----
+规划时序：
 
-## 10. 进程与线程视图
+```mermaid
+sequenceDiagram
+	participant OP as 管理员 / webservice
+	participant UP as gfrguard-rule-update
+	participant SRC as 升级服务器 / 离线包
+	participant ETC as /etc/gf2000/yara-rules
+	participant D as gfrguardd
+
+	OP->>UP: 触发升级（离线包路径或在线源）
+	UP->>SRC: 获取全量规则包
+	UP->>UP: 签名校验 + 哈希完整性校验
+	alt 校验失败
+		UP-->>OP: 报错退出，规则不变
+	else 校验通过
+		UP->>ETC: 原子替换规则目录（目录级 rename）
+		UP->>D: SIGHUP
+		D->>D: yara_engine_reload
+		opt reload 失败
+			D->>D: 回退旧规则并记录日志
+		end
+	end
+```
+
+设计决策：复用既有 SIGHUP 热重载通道，不新增 IPC；目录级 rename 保证 daemon 任意时刻要么看到完整旧规则、要么看到完整新规则；reload 失败回退旧规则，升级事故不影响检测主路径，符合故障放行原则。
+
+#### 6.4.3 SQLite 持久化
+
+表结构见 8.1，本节只说明所有权与一致性边界：
+
+- **写入者唯一**：`events` / `protected_files` / `created_files` / `cloud_task_configs` 的业务写入全部在 daemon 主线程；recover 只更新恢复状态字段；webservice 只读查询。三方各自打开 `index.db`，不共享连接。
+- **跨层非原子**：前像文件创建（L1 VFS）与 `protected_files` 入库（L2 daemon）不是一个事务——进程在两者之间崩溃会产生无索引的磁盘前像；空间管理定时任务负责收敛（见 9.2）。
+- **schema 兼容**：用 `ALTER TABLE` 补充历史列做就地迁移，新旧版本 daemon / recover 可混跑。
+- **单机语义**：SQLite 保证本机事务一致，不支持多节点共享阻断状态（见 3.2 硬约束）。
+
+## 7. 进程视图
 
 | 执行单元 | 数量 | 主要职责 | 阻塞风险 |
 |---|---:|---|---|
@@ -522,11 +514,9 @@ sequenceDiagram
 
 主循环同时监听 VFS socket、60 秒 timerfd 和 permission socketpair。对 permission 队列使用 `while (fanotify_process_queued() > 0)` 完全排空，持续洪泛时可能饿死其他 fd；之后才 drain notify 并回收恢复子进程。
 
----
+## 8. 数据与部署视图
 
-## 11. 数据与部署视图
-
-### 11.1 SQLite
+### 8.1 SQLite
 
 当前 schema 包含：
 
@@ -539,7 +529,7 @@ sequenceDiagram
 
 代码包含兼容性迁移，用 `ALTER TABLE` 补充历史列。数据库使用 SQLite 单机事务语义；前像文件创建和 DB 插入不是一个原子事务。
 
-### 11.2 协议
+### 8.2 协议
 
 `rguard_event_msg` 是本机 ABI 风格固定结构：
 
@@ -551,7 +541,7 @@ sequenceDiagram
 
 该 socket 是安全边界：本机低权限进程可能伪造事件并影响评分、数据库和阻断。部署应收紧 Unix socket 权限或增加凭据校验（如 `SO_PASSCRED`）。
 
-### 11.3 文件布局
+### 8.3 文件布局
 
 | 路径 | 内容 |
 |---|---|
@@ -564,7 +554,7 @@ sequenceDiagram
 | `/run/gfrguardd/blocked` | SMB/FTP IP 阻断列表 |
 | `/var/log/gfrguard/gfrguard.log` | 结构化事件日志 |
 
-### 11.4 部署图
+### 8.4 部署图
 
 ```mermaid
 flowchart TB
@@ -601,4 +591,77 @@ flowchart TB
     REC --> VAR
 ```
 
----
+## 9. 大小和性能
+
+### 9.1 规模
+
+| 模块 | 代码规模 | 交付形态 | 二进制大小（-O2 -g，含调试信息） |
+|---|---:|---|---:|
+| `src/vfs` | ~1.2k 行 C | `gfrguard.so`（按 Samba 4.19.6 / 4.23.5 各一份） | ~70 KB |
+| `src/daemon` | ~5.0k 行 C | `gfrguardd` | ~350 KB |
+| `src/common` | ~5.6k 行 C（含内嵌 cJSON） | 静态库，链接进 daemon/recover | — |
+| `src/recover` | ~0.5k 行 C | `gfrguard-recover` | ~88 KB |
+| `web/` | ~0.8k 行 Python | webservice | — |
+
+C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度集中在 daemon 的事件归一化和会话评分，不在代码量。
+
+### 9.2 影响架构的尺寸特征
+
+| 尺寸 | 值 | 架构影响 |
+|---|---|---|
+| 事件消息 | 定长 4608 B（文件路径上限 4096 B） | 无变长解析；超长路径事件无法表达，只能丢弃 |
+| 会话表 | 1024 桶哈希 + 线性探测 | 会话数有硬上限；洪泛下新会话可能无法建立 |
+| 目录扩散集合 | 每会话最多 256 个目录 hash | 超上限的扩散行为不再计入评分 |
+| CLOSE 内容比较 | ≤ 64 MiB 全量 FNV-1a | 大文件不做 CONTENT_SAME 降噪，按修改计分 |
+| 熵采样 | 文件头 8 KiB | 只覆盖文件开头；尾部加密的文件可能漏检 |
+| 空间管理 | 60 s 定时，超 `max_usage_percent` 清理 `cleanup_days` 天前已恢复备份 | 前像存储有自我收敛上限 |
+
+### 9.3 性能约束
+
+当前没有量化的性能测试数据，性能约束以设计上限形式存在：
+
+| 路径 | 约束 | 手段 |
+|---|---|---|
+| SMB I/O 同步路径 | 非破坏性操作直通 `NEXT_*`，只允许一次 blocked 文件检查 | mtime 失效缓存，避免每次 stat |
+| SMB 前像复制 | 与客户端写操作同步完成 | reflink → copy_file_range → read/write 三级降级 |
+| 事件上报 | 不得阻塞 smbd | AF_UNIX DGRAM fire-and-forget，EAGAIN 有限重试后丢弃 |
+| fanotify permission 应答 | 应答时延直接等于业务进程 open 阻塞时间 | 独立线程、禁止无界内容扫描、故障优先放行 |
+| daemon 主循环 | YARA/CLOSE 哈希/SQLite 均在主线程 | 已知吞吐瓶颈；慢操作会推迟所有通道处理（见 6.3） |
+
+## 10. 复用资产
+
+### 10.1 公司 RAB 中心与部门资产
+
+当前仓库未声明复用公司 RAB 中心或部门资产，**待确认**。webservice/WEBUI 若来自平台既有框架，应在此补充来源。
+
+### 10.2 项目内复用
+
+| 资产 | 复用方式 |
+|---|---|
+| `rguard_common`（protocol/config/db/log/errors/cJSON） | 静态库，daemon、recover、全部单元测试共同链接 |
+| `gfrguardd_blocker.c` | recover 工具直接编译复用，解除阻断逻辑不复制 |
+| daemon 模块源码集 | 单元测试以 stub 同名函数方式直接编译复用，无测试替身框架 |
+| `rguard_event_msg` 定长协议 | VFS 与 daemon 共享同一头文件，结构偏移静态断言锁定 |
+
+### 10.3 外部资产
+
+| 资产 | 来源/许可 | 复用方式 |
+|---|---|---|
+| cJSON | Dave Gamble，MIT | 源码内嵌 `src/common/`，消除外部依赖版本漂移 |
+| SQLite | 公有领域 | 动态链接，状态存储 |
+| libyara | VirusTotal，BSD-3 | 可选动态链接，缺失时降级编译 |
+| Samba VFS API | GPLv3 | 编译期头文件依赖，模块加载进 smbd；**GPL 兼容分发方式需在发布前确认** |
+| Flask | BSD / BSD-2 | webservice 框架 |
+| fanotify / inotify / systemd | Linux 平台 | 内核与系统能力，非代码资产 |
+
+## 11. 质量
+
+| 质量属性 | 架构手段 |
+|---|---|
+| 可扩展性 | 新通道 = 新 handler + `source_type`，协议与评分管线不变；新检测维度 = scorer 权重项 |
+| 可靠性 | 组件故障优先放行业务；DGRAM fire-and-forget；strict/permissive 双模式区分数据安全与业务连续 |
+| 可恢复性 | 前像 first-copy-wins + `event_id` 关联保护文件与新建文件
+| 可移植性 | 双 Samba ABI 分别构建；Yocto 交叉编译；YARA 可选降级
+| 安全性 | 前像/恢复路径 O_NOFOLLOW + 路径校验防符号链接攻击；PID starttime 防复用；blocked 文件原子重建 |
+| 可测试性 | 17个单元测试直接编译源码 + stub；集成测试覆盖真实 fanotify 环境 |
+| 性能 | 直通路径只加一次缓存检查，慢路径全部移出 I/O 主路 |
