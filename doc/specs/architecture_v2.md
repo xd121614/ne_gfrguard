@@ -101,21 +101,12 @@
 | fanotify 需要 root/CAP_SYS_ADMIN | daemon 以高权限运行；容器/WSL 环境通常不能完成真实集成测试 |
 | permission 与 FID notification 能力不同 | 使用两个 fanotify fd；权限线程和通知处理分离 |
 | fanotify permission 必须及时应答 | 权限路径不能执行无界内容扫描；故障应优先放行业务 |
+| fanotify permission 只支持 open / access 文件前触发 | unlink / rename 等场景下无法完成前像备份操作 |
 | Unix DGRAM 无确认 | VFS 上报是尽力而为，daemon 不可用时不能依赖消息完整性 |
 | 单节点 SQLite | 状态仅在本机一致，不支持多节点并发写或共享阻断状态 |
-
-### 3.3 零破坏原则的真实边界
-
-“组件故障不影响业务”并非无条件成立：
-
-- daemon/fanotify 初始化失败时，主程序可继续运行，非 SMB 通道失去检测；
-- VFS DGRAM 上报失败不会阻止 Samba I/O；
-- VFS `permissive` 模式下前像失败仍放行；
-- VFS 默认 `strict` 模式下前像失败会以 `ENOSPC`/`EACCES` 拒绝破坏性操作；
-- blocked 命中会主动返回 `EACCES`；
-- 同步 CLOSE 哈希、YARA 扫描可能增加关闭延迟或阻塞 daemon 主循环。
-
-因此，严格模式优先数据可恢复性，宽松模式优先业务连续性，两者不能同时宣称绝对“零影响”。
+| 不做损坏判定与计数阻断| 数据模型不保存逐文件 damaged/corrupted/encrypted 状态；内容信号（熵/YARA）仅作会话级证据参与行为评分，阻断依据是会话行为评分越限，**不是损坏文件数量** |
+| 单一行为维度不得单独触发阻断 | 任何单一计数维度（修改/重命名/删除/目录扩散）的加权贡献不得单独达到 CRITICAL；CRITICAL 必须由至少两个独立维度、或维度评分叠加定性证据（YARA/勒索扩展名）共同达到 |
+| 保护范围限定用户共享数据 | 只监控对外导出的 SMB 共享及 FTP/云/本地监控目录；不保护操作系统及系统关键文件，监控路径配置必须排除系统目录 |
 
 ## 4. 用例视图
 
@@ -393,21 +384,22 @@ sequenceDiagram
 
 $$
 S = \min\left(100,
-m w_m+r w_r+d w_d+t w_t+e w_e+x w_x+h w_h+y w_y
+m w_m+r w_r+d w_d+t w_t+e w_e+x w_x+\sigma_h w_h
 \right)
 $$
 
 其中：
 
-- $m,r,d,t$ 分别为修改、重命名、删除和目录扩散计数；
+- $m,r,d,t$ 分别为修改、重命名、删除和目录扩散计数——**行为计数**；
 - $e,x$ 分别为扩展名变化和勒索扩展名计数；
-- $h,y$ 分别为高熵和 YARA 命中计数；
+- $\sigma_h \in \{0,1\}$ 为高熵会话级信号：首次命中置位、加固定权重 $w_h$，**不按命中文件数累计**；
 - 权重和 NORMAL/SUSPICIOUS/HIGH/CRITICAL 阈值来自策略配置。
 
 修正规则：
 
 - CONTENT_SAME 占写活动 80% 以上时分数清零；50% 以上时封顶到 warn 以下；
 - 纯删除会话封顶 60；若 critical 配置不大于 60，该规则仍可能到 CRITICAL，配置校验必须保证阈值关系；
+- 单一维度会话封顶到 critical 以下：仅含一种非零行为计数的会话（无论修改、重命名还是目录扩散），其加权分不得单独达到 CRITICAL；出现第二个维度或定性证据（YARA/勒索扩展名）时解除。典型批量加密天然伴随目录扩散（$t>0$），不受此限；
 - 任一 YARA 命中把分数至少提升到 critical；
 - 普通 OPEN/WRITE/TRUNCATE 延迟评分，等待 CLOSE 或更强信号，降低批量同内容写误报。
 
@@ -418,6 +410,8 @@ $$
 | CONTENT_SAME | tracked file CLOSE，最大 64 MiB 全量比较 | 无前像比较 | smbd worker，同步 |
 | HIGH_ENTROPY | OPEN/WRITE/TRUNCATE | CREATE/MODIFY | daemon 主线程，同步采样前 8 KiB |
 | YARA_MATCH | CLOSE | CLOSE_WRITE | daemon 主线程，同步扫描 |
+
+熵与 YARA 都是会话级布尔信号：会话首次命中后，该会话后续文件**不再执行对应扫描**
 
 ### 6.4 持久化与工具层
 

@@ -534,8 +534,11 @@ skip_pf_insert:
         }
     }
 
-    /* Entropy analysis: check current file for high entropy. */
-    if (policy->scoring.entropy_enabled && msg->file_path[0] != '\0') {
+    /* Entropy analysis: check current file for high entropy.
+     * Session-level boolean signal: once this session already hit,
+     * further scans cannot change the score — skip them outright. */
+    if (policy->scoring.entropy_enabled && msg->file_path[0] != '\0' &&
+        s->high_entropy_count == 0) {
         bool run_entropy = false;
         if ((msg->flags & RGUARD_FLAG_BACKED_UP) &&
             (msg->op_type == RGUARD_OP_OPEN ||
@@ -556,10 +559,12 @@ skip_pf_insert:
         }
     }
 
-    /* YARA scanning: scan file content against loaded rules.*/
+    /* YARA scanning: scan file content against loaded rules.  Same
+     * session-level gating as entropy: a prior hit already forces
+     * CRITICAL, so repeat scans are pure main-thread cost. */
     if (policy->scoring.yara_enabled &&
         msg->file_path[0] != '\0' && yara_engine_active() &&
-        msg->op_type == RGUARD_OP_CLOSE) {
+        msg->op_type == RGUARD_OP_CLOSE && s->yara_match_count == 0) {
         char matched_rule[256] = {0};
         int yr = yara_scan_file(msg->file_path, matched_rule, sizeof(matched_rule));
         if (yr == 1) {
