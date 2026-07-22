@@ -2,17 +2,9 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档编号 | GF2000_APPCHECK_SA_02 |
-| 版本号 | V2.0 |
-| 编制日期 | 2026-07-20 |
-| 架构基线 | 当前仓库源码、配置和测试 |
-| 参考模板 | NSFT_AT02 V2.0 |
-
-## 更改履历
-
-| 版本号 | 更改时间 | 章节 | 状态 | 更改简要描述 |
-|---|---|---|---|---|
-| V2.0 | 2026-07-22 | 全部 | N | 按当前代码重建架构；区分已实现、部分实现和规划 |
+| 文档编号 | GF2000_APPCHECK_SA_01 |
+| 版本号 | V1.0 |
+| 编制日期 | 2026-07-22 |
 
 ---
 
@@ -34,9 +26,9 @@
 - `vfs_gfrguard.so`：Samba VFS 拦截模块；
 - `gfrguardd`：策略守护进程及 FTP、云同步、本地 fanotify 通道；
 - `gfrguard-recover`：事件级恢复和解除阻断工具；
+- `gfrguard-rule-update`规则包下载、签名校验和原子升级器；
 - 公共配置、协议、SQLite、日志、备份复制实现；
 - 默认策略、勒索扩展名和 YARA 规则；
-- 规则包下载、签名校验和原子升级器；
 - 邮件告警队列和 SMTP 发送器；
 - 单元测试和集成测试；
 
@@ -64,17 +56,31 @@
 
 ---
 
-## 2. 架构表示与证据等级
+## 2. 技术规格与技术选型
 
-本文采用裁剪后的 4+1 视图，并给每项结论标记实现状态：
+### 2.1 技术规格
 
-| 标记 | 含义 |
+| 项目 | 规格 |
 |---|---|
-| **已实现** | 当前源代码存在完整调用路径 |
-| **部分实现** | 接口或局部逻辑存在，但闭环、异步化或保护条件不完整 |
-| **规划** | 仅见于需求/设计/TODO，当前无可执行实现 |
+| 核心语言 | C17 |
+| 管理面 | webservice：Python 3 + Flask |
+| 目标平台 | GF2000 NAS，Linux，x86-64（Yocto poky `corei7-64` 目标） |
+| 进程形态 | smbd 内嵌 VFS 模块 + root 守护进程 + 恢复工具 + 升级工具 + Flask webservice |
+| 内核接口 | fanotify API |
+| 外部库 | SQLite3、libyara、pthread、libm |
+| Samba 依赖 | 按 Samba 源码树（waf 产物 `bin/default`）编译|
+| 管理面部署 | webservice 监听 `127.0.0.1:8880` |
+| 进程管理 | systemd 托管 smbd / gfrguardd / webservice |
 
-图中的实线表示当前运行调用或数据流，虚线只表示配置、控制或可选依赖。
+### 2.2 技术选型
+
+| 选型 | 理由 |
+|---|---|
+| C17 单一代码库 | VFS 模块运行在 smbd 进程地址空间内，daemon 以 root 常驻；C 无运行时依赖，启动快、内存可预期 |
+| Samba VFS 模块 | SMB 拦截的唯一客户端透明方案；不改 Samba 源码，不维护内核补丁 |
+| fanotify 而非内核模块/eBPF | 内核原生接口，无需 out-of-tree 模块，权限事件可同步应答 ALLOW/DENY |
+| SQLite 嵌入式库 | 单节点部署，状态只在本机一致 |
+| YARA | 内容特征检测的事实标准 |
 
 ---
 
@@ -96,12 +102,13 @@
 | 约束 | 架构影响 |
 |---|---|
 | Samba VFS ABI 随版本变化 | VFS 模块按目标 Samba 版本分别构建，回调签名条件编译 |
+| fanotify 依赖内核编译选项 | 需启用 `CONFIG_FANOTIFY` 和 `CONFIG_FANOTIFY_ACCESS_PERMISSIONS`（FAN_OPEN_PERM 应答能力）；Yocto 内核 defconfig 缺项时 `fanotify_init` 失败，FTP/云/本地三通道整体不可用 |
+| FID 模式依赖内核版本和文件系统能力 | `FAN_REPORT_DFID_NAME` 要求内核 ≥ 5.9 且被监控文件系统支持 exportfs 文件句柄（ext4/xfs/btrfs 支持，tmpfs 等不支持）；不满足时 notify 通道路径重建失效 |
 | fanotify 需要 root/CAP_SYS_ADMIN | daemon 以高权限运行；容器/WSL 环境通常不能完成真实集成测试 |
 | permission 与 FID notification 能力不同 | 使用两个 fanotify fd；权限线程和通知处理分离 |
 | fanotify permission 必须及时应答 | 权限路径不能执行无界内容扫描；故障应优先放行业务 |
 | Unix DGRAM 无确认 | VFS 上报是尽力而为，daemon 不可用时不能依赖消息完整性 |
 | 单节点 SQLite | 状态仅在本机一致，不支持多节点并发写或共享阻断状态 |
-| 固定协议结构 | `rguard_event_msg` 为 4608 字节，结构偏移由静态断言锁定 |
 
 ### 3.3 零破坏原则的真实边界
 
@@ -137,28 +144,67 @@
 
 ## 5. 逻辑视图
 
-### 5.1 系统上下文
+### 5.1 系统架构
 
 ```mermaid
 flowchart LR
-	SMB[SMB 客户端] --> SMBD[smbd worker]
-	FTP[FTP 客户端] --> FTPD[vsftpd child]
-	CLOUD[云端] --> RCLONE[rclone/云同步进程]
-	LOCAL[本地程序] --> FS[(受监控文件系统)]
+	subgraph EXT["系统外部"]
+		SMB[SMB 客户端]
+		FTP[FTP 客户端]
+		CLOUD[云端]
+		UPDATESERVER[升级服务器]
+		WEB[WEBUI]
+	end
 
-	SMBD --> VFS[vfs_gfrguard.so]
-	FTPD --> FS
-	RCLONE --> FS
-	VFS -->|AF_UNIX DGRAM| D[gfrguardd]
-	FS -->|fanotify/inotify| D
-	D --> DB[(SQLite index.db)]
-	D --> BLOCKED["/run/gfrguardd/blocked"]
-	D -->|fork + exec| REC[gfrguard-recover]
-	REC --> STORE[(backups + quarantine)]
-	REC --> DB
-	CFG[rguard-policy.json] -.-> VFS
-	CFG -.-> D
-	RULES[YARA rules] -.-> D
+	subgraph SYS["GF2000 系统"]
+		SMBD[smbd worker]
+		FTPD[vsftpd child]
+		RCLONE[rclone/云同步进程]
+		LOCAL[本地程序]
+		FS[(受监控文件系统)]
+		VFS[vfs_gfrguard.so]
+		KERNEL[Linux 内核<br/>fanotify]
+		D[gfrguardd]
+		DB[(SQLite index.db)]
+		BLOCKED["/run/gfrguardd/blocked"]
+		REC[gfrguard-recover]
+		STORE[(backups + quarantine)]
+		CFG[rguard-policy.json]
+		RULES[YARA rules]
+		WSS[webservice]
+		RULEUP[规则升级器<br/>签名校验 + 原子替换]
+
+		SMBD --> VFS
+		FTPD --> FS
+		RCLONE --> FS
+		LOCAL --> FS
+		VFS -->|AF_UNIX DGRAM| D
+		FS --> KERNEL
+		KERNEL -->|perm / notify 事件| D
+		D -->|FAN_ALLOW / FAN_DENY| KERNEL
+		D --> DB
+		D --> BLOCKED
+		D -->|fork + exec| REC
+		REC --> STORE
+		REC --> DB
+		CFG -.-> VFS
+		CFG -.-> D
+		RULES -.-> D
+		WEB --> WSS
+		WSS -.->|策略读写| CFG
+		WSS -.->|事件/状态查询| DB
+		WSS -.->|触发规则更新| RULEUP
+		RULEUP -.->|原子替换| RULES
+		RULEUP -.->|SIGHUP 热重载| D
+	end
+
+	SMB --> SMBD
+	FTP --> FTPD
+	CLOUD --> RCLONE
+	UPDATESERVER <-.-> RULEUP
+
+	style EXT fill:#f8f8f8,stroke:#999,stroke-dasharray:6 4
+	style SYS fill:#f4f8ff,stroke:#4a6fa5
 ```
 
 ### 5.2 组件分解
@@ -272,7 +318,7 @@ flowchart TB
     CS --> EVT[事件上报<br/>WRITE / RENAME / DELETE<br/>TRUNCATE / CLOSE / NEW_FILE]
     NEXT --> EVT
 
-    EVT ==>|AF_UNIX DGRAM 4608B| DMN[gfrguardd<br/>process_msg 会话评分]
+    EVT ==>|AF_UNIX DGRAM| DMN[gfrguardd<br/>process_msg 会话评分]
     DMN ==>|CRITICAL → 写入阻断 IP| BLK
 	BLK -.->|mtime 失效缓存| BLKGATE
 ```
@@ -336,7 +382,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-	A[receive fixed event_msg] --> B{VFS_BLOCKED?}
+	A[receive event_msg] --> B{VFS_BLOCKED?}
 	B -->|是| BT[记录遥测/事件并返回]
 	B -->|否| C{master 和 source 开关开启?}
 	C -->|否| R[返回]
@@ -416,65 +462,46 @@ $$
 
 ## 9. 阻断与恢复
 
-### 9.1 阻断状态机
+### 9.1 阻断与恢复时序
 
-```mermaid
-stateDiagram-v2
-	[*] --> Normal
-	Normal --> Suspicious: score >= warn
-	Suspicious --> High: score >= high
-	High --> Critical: score >= critical
-	Normal --> Critical: YARA forces critical
-	Critical --> Blocked: blocker succeeds
-	Blocked --> Blocked: later events/blocked cache
-	Blocked --> Unblocked: explicit recover unblock/admin action
-```
-
-CRITICAL 首次命中后：
-
-1. `session.is_blocked = true`；
-2. `blocker_execute` 更新运行文件和事件状态；
-3. 客户端 IP 加入内存自动黑名单；
-4. 自动黑名单持久化到策略 JSON；
-5. 重建 blocked 文件；
-6. 按配置 fork 延迟恢复进程。
-
-SMB 的 `smbcontrol smbd close-share` 是 share 粒度，可能断开同一共享上的无关会话；后续精确拒绝依赖 blocked 文件中的 IP。
-
-### 9.2 自动恢复时序
+会话风险状态共五级：Normal / Suspicious / High / Critical / Blocked，阈值来自策略配置。越过 warn/high 阈值只改变风险等级，不产生动作；到达 Critical（或任一 YARA 命中直接提升）才进入阻断流程。完整时序：
 
 ```mermaid
 sequenceDiagram
-	participant D as gfrguardd
-	participant R as restore launcher child
+	participant D as gfrguardd<br/>(会话评分)
+	participant BLK as blocker<br/>(blocked 文件 / 黑名单)
+	participant R as restore launcher
 	participant C as gfrguard-recover
 	participant DB as SQLite
-	participant Q as quarantine
-	participant B as backups
-	participant F as original path
+	participant ST as 存储<br/>(backups / quarantine / 原路径)
 
-	D->>R: fork after CRITICAL
-	R->>R: sleep configured delay
+	Note over D: Normal → Suspicious → High<br/>仅更新风险等级，无动作
+	D->>D: 分数 ≥ critical 或 YARA 命中
+	Note over D: 状态: Critical
+	D->>BLK: blocker_execute（按通道差异化动作）
+	BLK->>BLK: 重建 blocked 文件<br/>自动黑名单持久化到策略 JSON<br/>SMB: smbcontrol close-share<br/>fanotify 通道: FAN_DENY / 终止进程
+	Note over D,BLK: 状态: Blocked<br/>后续事件由 blocked 缓存直接拒绝
+	D->>R: fork 恢复子进程
+	R->>R: sleep 配置延迟
 	R->>C: exec restore --event ID --auto
-	C->>DB: query protected_files/created_files
-	loop each protected file
-		C->>F: lstat and validate path
-		C->>Q: move/copy current version
-		C->>B: open preimage O_NOFOLLOW
-		C->>F: recreate and copy metadata/content
-		C->>DB: mark restored
-		C->>B: unlink consumed preimage
+	C->>DB: 查询该 event 的 protected_files / created_files
+	loop 每个受保护文件
+		C->>ST: 当前版本移入 quarantine<br/>前像写回原路径
+		C->>DB: 标记 restored
 	end
-	loop each event-created path
-		C->>Q: quarantine or safely remove
-		C->>DB: delete created_files row
+	loop 每个事件窗口新建文件
+		C->>ST: 隔离或安全删除
+		C->>DB: 删除 created_files 记录
 	end
-	D->>D: waitpid WNOHANG and log result
+	D->>D: waitpid 回收并记录结果
+	Note over D,C: 保持 Blocked，仅管理员显式 unblock 后解除
 ```
+
+阻断动作的粒度边界：SMB 的 `smbcontrol smbd close-share` 是 share 粒度，可能断开同一共享上的无关会话；后续精确拒绝依赖 blocked 文件中的 IP。
 
 恢复对象由 `event_id` 下的 `protected_files` 和 `created_files` 决定，不依赖逐文件损坏判定。隔离对象是风险事件关联文件的恢复前当前版本，以及事件窗口中新建的常规文件；隔离不表示系统已经对该文件形成 damaged/corrupted/encrypted 判定。
 
-### 9.3 恢复一致性边界
+### 9.2 恢复一致性边界
 
 - 前像磁盘路径不包含 event_id，而 DB 唯一键是 `(event_id, original_path)`；跨窗口复用同一旧前像可能使多个事件指向同一文件。
 - 成功恢复后删除前像；并发恢复同一路径可能竞争。
@@ -516,7 +543,6 @@ sequenceDiagram
 
 `rguard_event_msg` 是本机 ABI 风格固定结构：
 
-- 总长 4608 字节；
 - 携带 message/op/flags、时间、inode/size/mtime/uid/gid/mode；
 - 携带 username、client_ip、share_name、绝对 file_path 和 new_name；
 - 携带 source_type 和 proto_version；
