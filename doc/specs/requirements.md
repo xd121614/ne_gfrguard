@@ -37,6 +37,7 @@
 | 云连携反勒索模块 | Google Drive / OneDrive | fanotify FAN_OPEN_PERM + rclone cmdline 解析 |
 | 本地反勒索模块 | 本地进程 | fanotify FAN_OPEN_PERM + PID/comm 粒度 |
 | 文件恢复工具 | 全部 | gfrguard-recover CLI |
+| 规则升级工具 | 全部 | gfrguard-rule-update CLI（签名校验 + 原子替换 + SIGHUP 热生效） |
 | 配置系统 | 全部 | JSON + SIGHUP 热重载 + 四通道子开关 |
 
 ---
@@ -294,6 +295,14 @@
 
 **FR-RULE-02: 加密文件结构检测**
 - **描述**：规则覆盖已知勒索软件家族的加密文件头部标识、嵌入的 RSA/PEM 密钥材料。
+
+**FR-RULE-03: 签名规则升级**
+- **描述**：提供独立升级工具 `gfrguard-rule-update`（按需执行，不常驻），支持从离线规则包或在线升级服务器获取新版全量规则，安全替换现有规则集并热生效。
+- **核心规则**：
+  - 完整性校验：签名校验 + 哈希校验，校验失败则报错退出，现有规则不变
+  - 原子替换：目录级 rename 替换 `/etc/gf2000/yara-rules/`，daemon 任意时刻要么看到完整旧规则、要么看到完整新规则
+  - 热生效：替换后向 gfrguardd 发送 SIGHUP 触发 `yara_engine_reload`；reload 失败回退旧规则并记录日志，升级事故不影响检测主路径
+  - 复用既有 SIGHUP 热重载通道，不新增 IPC 机制
 
 ---
 

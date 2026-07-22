@@ -26,6 +26,7 @@
 | 云连携反勒索模块 | fanotify 双 fd + rclone cmdline 解析 + neo-croner 任务阻断/恢复 |
 | 本地反勒索模块 | fanotify 双 fd + PID/comm 粒度 + SIGKILL，含进程名白名单 |
 | 配置系统 | JSON + SIGHUP 热重载 + fanotify mark 管理 |
+| 规则升级工具 (`gfrguard-rule-update`) | 规则包签名校验、原子替换、SIGHUP 热生效（规划，见 3.10） |
 | IPC 协议 | SMB: 4608 字节 DGRAM；FTP/Cloud/Local: fanotify 事件 fd |
 
 ---
@@ -474,6 +475,27 @@ SQLite (`<store_path>/index.db`)：
 | `cloud_task_configs` | 云同步任务配置 (event_id, task_name, expression, command, status, disabled_at, restored_at) —— 阻断时保存，恢复时读取 | 云连携 |
 | `local_block_events` | 本地阻断审计 (event_id, pid, comm, cmdline, exe_path, risk_score, block_action, blocked_at) | 本地 |
 
+### 3.10. 规则升级（FR-RULE-03，规划）
+
+`gfrguard-rule-update` 为独立 CLI，由管理员或 webservice 按需触发，**不常驻**。升级流程：
+
+```text
+获取规则包（离线包路径 / 在线升级服务器）
+  │
+  ├─[1] 签名校验 + 哈希完整性校验 ─── 失败 → 报错退出，现有规则不变
+  ├─[2] 解压到临时目录，目录级 rename 原子替换 /etc/gf2000/yara-rules/
+  │         （daemon 任意时刻要么看到完整旧规则，要么看到完整新规则）
+  ├─[3] 向 gfrguardd 发送 SIGHUP
+  └─[4] daemon yara_engine_reload ─── 失败 → 回退旧规则并记录日志
+```
+
+**关键设计决策**：
+
+- 复用既有 SIGHUP 热重载通道（同 3.7.2），不新增 IPC 机制；
+- 原子性依赖目录级 rename，不锁 daemon、不停检测；
+- 失败全链路 fail-safe：校验失败不动规则，reload 失败回退旧规则，升级事故不影响检测主路径；
+- 当前状态：daemon 侧 `yara_engine_reload` + SIGHUP 能力已实现，升级器本体无代码（📋）。
+
 ---
 
 ## 4. 关键非功能性设计
@@ -483,6 +505,7 @@ SQLite (`<store_path>/index.db`)：
 | 层 | 错误场景 | 行为 |
 |----|---------|------|
 | VFS | 备份失败 / IPC 失败 / blocked 读取失败 | 透明回退到 SMB_VFS_NEXT_* |
+| 规则升级 | 签名校验失败 / reload 失败 | 报错退出规则不变 / 回退旧规则并记日志 |
 | fanotify | daemon 崩溃 / handler 错误 | 内核自动 FAN_ALLOW 所有待处理事件，不挂死业务进程 |
 | daemon | 规则初始化失败 | 不阻止启动，扫描静默跳过 |
 | daemon | JSON 解析/校验失败 | 使用默认值 / 保留当前配置 |
@@ -547,3 +570,4 @@ SQLite (`<store_path>/index.db`)：
 
 1. **评分权重校准**：需在实际业务环境进行数据驱动的调优
 2. **告警通知机制**：邮件告警 暂未实现
+3. **规则升级器实现**：daemon 侧 SIGHUP/reload 能力已就绪，`gfrguard-rule-update` 本体待实现（见 3.10）；签名算法与升级服务器协议待定

@@ -70,5 +70,5 @@
 | 例外与文件类型过滤 | exceptions.files/folders + file_extensions.all/manual | ✅ | FR-CONFIG-04/05 / L3[5]-[7] |
 | 配置热重载 | SIGHUP 重读策略/评分/名单/规则，并**重建 fanotify marks**（监控路径与通道开关变更即时生效；重载瞬间停/启 perm 线程，内核排队不丢事件） | ✅ | FR-CONFIG-02 / L3[25] |
 | 结构化日志 | 分级事件码 + JSON 详情，events 表全程留痕 | ✅ | design 4.2 |
-| 规则升级机制 | 校验 → 原子替换规则目录 → SIGHUP 热生效（挂接点已预留） | 📋 | architecture 5.2.5 |
+| 规则升级机制 | `gfrguard-rule-update`（独立 CLI 不常驻）：签名+哈希校验 → 目录级 rename 原子替换规则目录 → SIGHUP 热生效，reload 失败回退旧规则 | 📋 | FR-RULE-03 / architecture_v2 6.4.2 |
 | 邮件告警 | 事件订阅 + 异步 SMTP + 10 分钟聚合发送 | 📋 | architecture 5.2.6 |
