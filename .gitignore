@@ -1,0 +1,7 @@
+bb_file/
+build*/
+ftp-src/
+samba-src/
+tests/build/
+gfrguard_1.0.bb
+vsftpd*/

@@ -1,0 +1,14 @@
+[Unit]
+Description=GF2000 Anti-Ransomware Strategy Daemon
+After=network.target smbd.service
+
+[Service]
+Type=simple
+Environment=TZ=Asia/Tokyo
+ExecStart=/usr/sbin/gfrguardd --config /etc/gf2000/rguard-policy.json
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

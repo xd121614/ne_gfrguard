@@ -1,0 +1,19 @@
+DECRYPT-FILES.txt
+
+All your files have been encrypted using Maze ransomware.
+Your databases, documents, and other important data are now inaccessible.
+
+We have also exfiltrated all your sensitive data before encryption.
+If you do not pay, we will publish everything on our public news site.
+
+To recover your data:
+1. Purchase Bitcoin using any exchange service
+2. Send payment to the Bitcoin address we provide after negotiation
+3. You will receive the decryption tool
+
+You can send us 2-3 files for free decryption as proof.
+Contact us via our website for payment details.
+
+Do not try to recover files without our decryptor — this may cause permanent damage.
+
+Source: BleepingComputer / McAfee ATR

@@ -1,0 +1,23 @@
+Cl0p Ransomware
+
+Your network has been compromised and all your files have been encrypted with Cl0p ransomware.
+
+We have also downloaded your sensitive data including databases, financial documents, and personal information.
+
+If you do not contact us within 2 weeks, we will:
+1. Publish all your data on our CL0P^_-LEAKS site
+2. Notify your clients and partners about this breach
+3. Make your data available for download to anyone
+
+To recover your data:
+1. Install Tor Browser
+2. Visit our Tor website using the link below
+3. Follow the instructions to pay and receive the decryptor
+
+Link: http://santat7kpllt6iyvqbr7q4amdv6dzrh6paatvyrzl7ry3zm72zigf4ad.onion
+
+Your personal ID: [UNIQUE]
+
+Warning: Do not attempt to decrypt files using any third-party tools!
+
+Source: SentinelOne / BleepingComputer

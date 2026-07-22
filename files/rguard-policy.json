@@ -1,0 +1,44 @@
+{
+  "store_path": "/var/lib/gf2000/rguard-store",
+  "log_path": "/var/log/gfrguard",
+  "monitor_path": {
+    "cloud_sync": [],
+    "ftp": [],
+    "local": []
+  },
+  "log_level": "debug",
+  "mode": "strict",
+  "scoring_config": "/etc/gf2000/rguard-scoring.json",
+  "ransom_extensions_config": "/etc/gf2000/ransom-extensions.json",
+  "exceptions": {
+    "files": [],
+    "folders": []
+  },
+  "whitelist": {
+    "users": [],
+    "ips": []
+  },
+  "blacklist": {
+    "users": [],
+    "ips": []
+  },
+  "space": {
+    "max_usage_percent": 80,
+    "cleanup_days": 30
+  },
+  "auto_restore": {
+    "enabled": false,
+    "delay_seconds": 3
+  },
+  "protection": {
+    "enabled": true,
+    "smb": true,
+    "cloud_sync": false,
+    "ftp": false,
+    "host": false
+  },
+  "file_extensions": {
+	"all": true,
+	"manual": []
+  }
+}

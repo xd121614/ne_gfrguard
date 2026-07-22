@@ -1,0 +1,17 @@
+PLAY
+
+Your network has been hacked and your data has been encrypted by PLAY ransomware.
+
+We have also downloaded all your sensitive information before encrypting it.
+
+If you refuse to cooperate, your private data will be published on our Tor leak site and shared with journalists, regulators, and your business partners.
+
+To recover your data, contact us via the Tor network. We will provide decryption after payment is confirmed.
+
+You can test decryption on 2-3 files for free to verify our capability.
+
+Do not use third-party decryption tools — they will corrupt your files permanently.
+
+Contact us through our Tor portal for further instructions.
+
+Source: SentinelOne / Trend Micro

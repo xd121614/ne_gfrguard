@@ -1,0 +1,2666 @@
+﻿  <script>
+    // mock数据
+    window.mockData = {
+      blockedConnections: [
+        { username: 'user1', client_ip: '192.168.1.10', session_key: 'sess-001' },
+        { username: 'user2', client_ip: '192.168.1.11', session_key: 'sess-002' }
+      ],
+      events: [
+		{"action_taken":"blocked","client_ip":"192.168.1.20","ended_at":"2026-05-11T11:43:51","event_id":"evt-20260511-005","files_affected":655,"files_created":26,"files_deleted":26,"files_protected":7,"id":5,"peak_risk_score":81,"session_key":"neteye@192.168.1.20","started_at":"2026-05-11T11:43:51","status":"blocked","username":"neteye"},{"action_taken":"restored","client_ip":"192.168.1.20","ended_at":"2026-05-11T11:39:59","event_id":"evt-20260511-003","files_affected":850,"files_created":0,"files_deleted":0,"files_protected":16,"id":3,"peak_risk_score":80,"session_key":"neteye@192.168.1.20","started_at":"2026-05-11T11:31:40","status":"resolved","username":"neteye"}
+      ],
+      quarantine: [{"client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_count":16,"files":[{"mtime":"2026-05-11T11:31:42","path":"mnt/storage/filer/home/neteye/webpage.html","quarantine_time":"2026-05-11T11:39:59","size":432,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:42","path":"mnt/storage/filer/home/neteye/photo_1.jpg","quarantine_time":"2026-05-11T11:39:59","size":5512,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:42","path":"mnt/storage/filer/home/neteye/notes.txt","quarantine_time":"2026-05-11T11:39:59","size":428,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/report.pdf","quarantine_time":"2026-05-11T11:39:59","size":419,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/database.sql","quarantine_time":"2026-05-11T11:39:59","size":444,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/script.ps1","quarantine_time":"2026-05-11T11:39:59","size":431,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/project_budget.xlsx","quarantine_time":"2026-05-11T11:39:59","size":413,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/config.json","quarantine_time":"2026-05-11T11:39:59","size":417,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/temporary.tmp","quarantine_time":"2026-05-11T11:39:59","size":417,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/old_version.old","quarantine_time":"2026-05-11T11:39:59","size":417,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/archive_1.zip","quarantine_time":"2026-05-11T11:39:59","size":4488,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/photo_2.png","quarantine_time":"2026-05-11T11:39:59","size":5512,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/server.log","quarantine_time":"2026-05-11T11:39:59","size":426,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/backup_config.bak","quarantine_time":"2026-05-11T11:39:59","size":417,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/ransomware_test.log","quarantine_time":"2026-05-11T11:39:59","size":2165,"started_at":"2026-05-11T11:31:40"},{"mtime":"2026-05-11T11:31:43","path":"mnt/storage/filer/home/neteye/financial_report.docx","quarantine_time":"2026-05-11T11:39:59","size":417,"started_at":"2026-05-11T11:31:40"}],"quarantine_time":"2026-05-11T11:39:59","started_at":"2026-05-11T11:31:40","username":"neteye"}],
+      whitelist: { users: ['administrator', 'test1'], ips: ['192.168.1.100'] },
+      blacklist: { users: ['test2'], ips: ['192.168.1.200'] },
+      eventFiles: {
+        'evt-20260511-005': {"created_files":[{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/backup/README.html","id":29},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/README.html","id":30},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/docs/project_2/README.html","id":31},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/docs/README.html","id":32},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/iamges/README.html","id":33},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/logs/README.html","id":34},{"created_at":"2026-05-11T11:43:45","file_path":"/mnt/storage/filer/home/neteye/sheets/README.html","id":35},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/archive_1.zip.locked","id":36},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/backup_config.bak.locked","id":37},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/database.sql.locked","id":38},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/project_notes_1.txt.locked","id":39},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/secret_data_1.csv.locked","id":40},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_2/project_notes_2.txt.locked","id":41},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/project_notes_1.txt","id":42},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/archive_1.zip","id":43},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/database.sql","id":44},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/secret_data_1.csv","id":45},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_2/secret_data_2.csv.locked","id":46},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/backup_config.bak","id":47},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/database.sql","id":48},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_2/project_notes_2.txt","id":49},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/financial_report.docx.locked","id":50},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_1/secret_data_1.csv","id":51},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/backup_config.bak","id":52},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/database.sql","id":53},{"created_at":"2026-05-11T11:43:51","file_path":"/mnt/storage/filer/home/neteye/docs/project_2/project_notes_2.txt","id":54}],"event_id":"evt-20260511-005","protected_files":[{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/archive_1.zip","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":4096,"id":32,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/archive_1.zip","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/docs/project_1/project_notes_1.txt","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":172,"id":33,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/docs/project_1/project_notes_1.txt","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/database.sql","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":52,"id":34,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/database.sql","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/backup_config.bak","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":25,"id":35,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/backup_config.bak","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/docs/project_1/secret_data_1.csv","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":23,"id":36,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/docs/project_1/secret_data_1.csv","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/docs/project_2/project_notes_2.txt","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":172,"id":40,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/docs/project_2/project_notes_2.txt","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/docs/project_2/secret_data_2.csv","client_ip":"192.168.1.20","event_id":"evt-20260511-005","file_size":23,"id":46,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/docs/project_2/secret_data_2.csv","protected_at":"2026-05-11T11:43:51","restore_status":"pending","restored_at":null,"share_name":"home","username":"neteye"}]},
+        'evt-20260511-003': {"created_files":[],"event_id":"evt-20260511-003","protected_files":[{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/webpage.html","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":40,"id":1,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/webpage.html","protected_at":"2026-05-11T11:31:40","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/photo_1.jpg","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":5120,"id":2,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/photo_1.jpg","protected_at":"2026-05-11T11:31:40","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/notes.txt","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":36,"id":3,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/notes.txt","protected_at":"2026-05-11T11:31:40","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/report.pdf","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":27,"id":7,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/report.pdf","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/script.ps1","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":39,"id":8,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/script.ps1","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/database.sql","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":52,"id":9,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/database.sql","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/config.json","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":25,"id":13,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/config.json","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/project_budget.xlsx","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":21,"id":14,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/project_budget.xlsx","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/temporary.tmp","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":25,"id":15,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/temporary.tmp","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/archive_1.zip","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":4096,"id":19,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/archive_1.zip","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/old_version.old","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":25,"id":20,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/old_version.old","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/photo_2.png","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":5120,"id":21,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/photo_2.png","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/backup_config.bak","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":25,"id":25,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/backup_config.bak","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/server.log","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":34,"id":27,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/server.log","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/ransomware_test.log","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":1773,"id":28,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/ransomware_test.log","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"},{"backup_path":"/var/lib/gf2000/rguard-store/backups/home/neteye/financial_report.docx","client_ip":"192.168.1.20","event_id":"evt-20260511-003","file_size":25,"id":31,"op_type":2,"original_path":"/mnt/storage/filer/home/neteye/financial_report.docx","protected_at":"2026-05-11T11:31:43","restore_status":"restored","restored_at":"2026-05-11T11:39:59","share_name":"home","username":"neteye"}]}
+      }
+    };
+
+    // mock接口拦截
+    function mockFetch(url) {
+      if (url.includes('/api/users')) {
+        // 模拟可选用户列表，type=whitelist/blacklist
+        return Promise.resolve({ json: () => Promise.resolve({ users: ['user1', 'user2', 'user3', 'user4'] }) });
+      }
+      if (url.includes('/api/blocked')) {
+        return Promise.resolve({ json: () => Promise.resolve({ blocked: window.mockData.blockedConnections }) });
+      }
+      if (url.includes('/api/events/files')) {
+        // 详情页
+        const eventId = new URLSearchParams(url.split('?')[1]).get('event_id');
+        return Promise.resolve({ json: () => Promise.resolve(window.mockData.eventFiles[eventId] || { protected_files: [], created_files: [] }) });
+      }
+      if (url.includes('/api/events')) {
+        return Promise.resolve({ json: () => Promise.resolve({ events: window.mockData.events }) });
+      }
+      if (url.includes('/api/quarantine')) {
+        return Promise.resolve({ json: () => Promise.resolve({ quarantine: window.mockData.quarantine }) });
+      }
+      if (url.includes('/api/whitelist')) {
+        return Promise.resolve({ json: () => Promise.resolve({ whitelist: window.mockData.whitelist, blacklist: window.mockData.blacklist }) });
+      }
+      return window._realFetch(url);
+    }
+    window._realFetch = window.fetch;
+    window.fetch = mockFetch;
+  </script>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>saxa GF2000 勒索防护设置</title>
+  <style>
+:root {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  -webkit-tap-highlight-color: transparent;
+  --in: 72.06% 0.191 231.6;
+  --su: 64.8% 0.150 160;
+  --wa: 84.71% 0.199 83.87;
+  --er: 71.76% 0.221 22.18;
+  --pc: 89.824% 0.06192 275.75;
+  --ac: 15.352% 0.0368 183.61;
+  --inc: 0% 0 0;
+  --suc: 0% 0 0;
+  --wac: 0% 0 0;
+  --erc: 0% 0 0;
+  --rounded-box: 1rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1.9rem;
+  --animation-btn: 0.25s;
+  --animation-input: 0.2s;
+  --btn-focus-scale: 0.95;
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+  --p: 49.12% 0.3096 275.75;
+  --s: 69.71% 0.329 342.55;
+  --sc: 98.71% 0.0106 342.55;
+  --a: 76.76% 0.184 183.61;
+  --n: 32.1785% 0.02476 255.701624;
+  --nc: 89.4994% 0.011585 252.096176;
+  --b1: 100% 0 0;
+  --b2: 96.1151% 0 0;
+  --b3: 92.4169% 0.00108 197.137559;
+  --bc: 27.8078% 0.029596 256.847952;
+  --tw-border-opacity: 1;
+  --tw-bg-opacity: 1;
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgba(59, 130, 246, 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --page-bg: #ffffff;
+  --top-bg: #ffffff;
+  --teal: #06B6D4;
+  --sidebar-bg: #cbd5e1;
+  --sidebar-border: #8b99a8;
+  --text: #12253d;
+  --muted: #5c6775;
+  --line: #3f4d62;
+  --input-border: #97a4b4;
+  --input-bg: #edf1f5;
+  --active-bg: #dbeffb;
+  --active-border: #009fc2;
+  --btn: #929cab;
+  --btn-hover: #7f8b9b;
+  --btn-primary: #4651cf;
+  --btn-primary-hover: #3b45b8;
+  --btn-danger: #9a6269;
+  --btn-danger-hover: #84535a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scrollbar-color: color-mix(in oklch, currentColor 35%, transparent) transparent;
+  font-size: 29px;
+  line-height: 1.35;
+}
+
+body {
+  box-sizing: border-box;
+  border: 0 solid #e5e7eb;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+.topbar {
+  height: 56px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--top-bg);
+  border: 1px solid #c8cdd4;
+  border-bottom: 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.brand-logo {
+  width: 76px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #212121;
+  border-right: 1px solid #2c2c2c;
+  background: linear-gradient(180deg, #f8f8f8 0%, #d7d7d7 100%);
+}
+
+.brand-model {
+  width: 126px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #e8e8e8;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #5d5d5d 0%, #171717 100%);
+}
+
+.teal-strip {
+  height: 20px;
+  background: var(--teal);
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 12px;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #26384f;
+}
+
+.language-switch select {
+  min-height: 28px;
+  min-width: 74px;
+  padding: 2px 6px;
+  border: 1px solid #b7bec7;
+  border-radius: 4px;
+  background: #f4f6f8;
+  font-size: 12px;
+}
+
+.top-actions button {
+  min-width: 76px;
+  min-height: 38px;
+  border: 1px solid #b7bec7;
+  border-radius: 4px;
+  background: #f4f6f8;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.top-actions button.primary {
+  background: #f4f6f8;
+}
+
+.page-shell {
+  display: grid;
+  grid-template-columns: 312px 1fr;
+  min-height: calc(100vh - 76px);
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 2px 0 16px;
+}
+
+.sidebar-section {
+  margin-bottom: 4px;
+}
+
+.sidebar-title {
+  margin: 2px 0 3px 4px;
+  font-size: 32px;
+  line-height: 1.25;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sidebar nav {
+  display: block;
+}
+
+.sidebar a {
+  display: block;
+  width: 100%;
+  margin-left: 0;
+  padding: 1px 8px 1px 2rem;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 36px;
+  line-height: 1.25;
+  border-radius: 2px;
+  text-wrap: nowrap;
+}
+
+.submenu {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.submenu a {
+  padding-left: 3rem;
+}
+
+.submenu a.submenu-child {
+  padding-left: 4.5rem;
+}
+
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.sidebar a.is-active {
+  background: var(--active-bg);
+  border: 2px solid var(--active-border);
+  border-radius: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.content {
+  background: var(--page-bg);
+  padding: 34px 46px;
+}
+
+.card {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+}
+
+.panel-title {
+  margin-bottom: 10px;
+}
+
+.card h1,
+.card h2,
+.card h3 {
+  margin: 0;
+  font-size: 35px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.panel-title p {
+  margin: 0;
+  font-size: 27px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.page-heading {
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 7px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.is-hidden {
+  display: none;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  background: var(--btn);
+  color: #ffffff;
+  min-height: 38px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 27px;
+  line-height: 1.1;
+  white-space:nowrap;
+}
+
+/* 已恢复按钮样式：悬停不变色 */
+.btn-restored {
+  background: #bdbdbd;
+  color: #fff;
+  cursor: default;
+}
+
+.btn:hover {
+  background: var(--btn-hover);
+}
+
+.btn-primary {
+  background: var(--btn-primary);
+}
+
+.btn-primary:hover {
+  background: var(--btn-primary-hover);
+}
+
+.btn-danger {
+  background: var(--btn-danger);
+}
+
+.btn-danger:hover {
+  background: var(--btn-danger-hover);
+}
+
+.btn-ghost {
+  min-height: 32px;
+  border-radius: 8px;
+  font-size: 24px;
+  padding: 4px 12px;
+}
+
+.setting-block {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.btn-restored:hover {
+  background: #bdbdbd;
+  color: #fff;
+}
+
+.setting-main {
+  display: grid;
+  gap: 7px;
+}
+
+.setting-main p,
+.hint,
+.empty-text {
+  margin: 0;
+  font-size: 26px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.error-text {
+  margin: 0;
+  color: #bc3f4d;
+  min-height: 1.1em;
+  font-size: 24px;
+}
+
+.setting-children {
+  margin-top: 8px;
+  padding-top: 6px;
+}
+
+.setting-children.is-disabled {
+  opacity: 0.48;
+}
+
+.inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.checkbox-line,
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 30px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.checkbox-line input,
+.radio input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.form-group {
+  display: grid;
+  gap: 8px;
+}
+
+.group-title,
+.form-group label,
+.list-panel h3,
+.form-grid label,
+.usage-head span,
+.usage-head strong,
+.danger-zone h3,
+.danger-zone p {
+  font-size: 31px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.grid-2,
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.list-panel,
+.usage-card,
+.danger-zone {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  padding: 6px 12px;
+  font-size: 29px;
+  line-height: 1.2;
+}
+
+input[type="text"]::placeholder,
+input[type="number"]::placeholder {
+  color: #7a8799;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+  outline: none;
+  background: #f4f7fa;
+  border-color: #7e90a7;
+}
+
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #bcc6d3;
+  border-radius: 2px;
+  background: #eef2f7;
+  padding: 7px 10px;
+}
+
+.list-item span {
+  font-size: 27px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #9aa7b8;
+  background: #ffffff;
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.log-table th,
+.log-table td {
+  border: 1px solid #9aa7b8;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.log-table thead th {
+  background: #f3f6fa;
+  font-weight: 600;
+}
+
+.usage-card {
+  margin-top: 8px;
+}
+
+.usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 18px;
+  border: 1px solid #9db7bc;
+  background: #b8ddd5;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #7bc8b9;
+}
+
+.danger-zone {
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  background: #5a687b;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  font-size: 25px;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-overlay.is-hidden {
+  display: none;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 8px;
+  padding: 18px 22px;
+  max-width: 720px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.file-count-link {
+  color: var(--btn-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.section-box {
+  border: 1px solid #bcc6d3;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: #fafbfc;
+}
+
+.section-box > h3:first-child {
+  margin-top: 0;
+}
+
+.section-box .grid-2 {
+  gap: 0;
+}
+
+.section-box .grid-2 > .list-panel {
+  padding: 0 16px;
+}
+
+.section-box .grid-2 > .list-panel:first-child {
+  padding-left: 0;
+  border-right: 1px solid #bcc6d3;
+}
+
+.section-box .grid-2 > .list-panel:last-child {
+  padding-right: 0;
+}
+
+/* sheet页tab样式 */
+.sheet-tab-bar {
+display: flex;
+gap: 0;
+/* border-bottom: 2px solid #d1d5db; */
+margin-bottom: 1rem;
+}
+.sheet-tab {
+min-width: 140px;
+padding: 8px 24px;
+background: #f8fafc;
+border: 1px solid #d1d5db;
+border-bottom: none;
+/* border-radius: 8px 8px 0 0; */
+color: #1e293b;
+font-size: 15px;
+font-weight: 500;
+text-align: center;
+cursor: pointer;
+margin-right: 2px;
+transition: background 0.2s, color 0.2s;
+}
+.sheet-tab.is-active {
+background: #fff;
+color: #2563eb;
+border-bottom: 2px solid #fff;
+z-index: 2;
+}
+.sheet-tab:not(.is-active):hover {
+background: #f1f5f9;
+color: #334155;
+}
+
+/* User requested smaller text: unify to size 14 */
+html,
+body,
+.top-actions button,
+.language-switch,
+.language-switch select,
+.sidebar-title,
+.sidebar a,
+.card h1,
+.card h2,
+.card h3,
+.panel-title p,
+.setting-main p,
+.hint,
+.empty-text,
+.error-text,
+.checkbox-line,
+.radio,
+.group-title,
+.form-group label,
+.list-panel h3,
+.form-grid label,
+.usage-head span,
+.usage-head strong,
+.danger-zone h3,
+.danger-zone p,
+.btn,
+.btn-ghost,
+input[type="text"],
+input[type="number"],
+select,
+.list-item span,
+.toast {
+  font-size: 15px !important;
+  line-height: 1.25;
+}
+
+@media (max-width: 1200px) {
+  html,
+  body {
+    font-size: 19px;
+  }
+
+  .brand-logo {
+    font-size: 28px;
+  }
+
+  .brand-model {
+    font-size: 28px;
+  }
+
+  .sidebar-title {
+    font-size: 21px;
+  }
+
+  .sidebar a {
+    font-size: 23px;
+  }
+
+  .card h1,
+  .card h2,
+  .card h3,
+  .group-title,
+  .form-group label,
+  .list-panel h3,
+  .form-grid label,
+  .usage-head span,
+  .usage-head strong,
+  .danger-zone h3,
+  .danger-zone p {
+    font-size: 22px;
+  }
+
+  .setting-main p,
+  .hint,
+  .empty-text {
+    font-size: 18px;
+  }
+
+  .checkbox-line,
+  .radio,
+  input[type="text"],
+  input[type="number"],
+  .btn,
+  .list-item span {
+    font-size: 19px;
+  }
+
+  .grid-2,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .page-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    order: 2;
+  }
+
+  .content {
+    padding: 16px;
+  }
+
+  .page-heading,
+  .danger-zone {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+}
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo">saxa</span>
+      <span class="brand-model">GF2000</span>
+    </div>
+    <div class="top-actions">
+      <label class="language-switch" for="languageSelect">
+        <span data-i18n="langLabel">语言</span>
+        <select id="languageSelect" aria-label="Language switcher">
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </label>
+      <button data-i18n="logout">登出</button>
+      <button class="primary" data-i18n="reboot">重启</button>
+    </div>
+  </header>
+  <div class="teal-strip" aria-hidden="true"></div>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title" data-i18n="menuWizard">设置向导</div>
+        <nav>
+          <a href="#" data-i18n="wizard1">1. 基本设置向导</a>
+          <a href="#" data-i18n="wizard2">2. 服务器连通确认</a>
+          <a href="#" data-i18n="wizard3">3. 产品启用</a>
+          <a href="#" data-i18n="wizard4">4. 用户管理▼</a>
+          <a href="#" data-i18n="wizard5">5. 联动功能设置（可选）▼</a>
+          <a href="#" data-i18n="wizard6">6. 设置确认</a>
+        </nav>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title" data-i18n="menuAdvanced">详细设置</div>
+        <nav>
+          <a href="#" data-i18n="securityMgmt">信息安全管理▼</a>
+          <a href="#" data-i18n="networkSettings">网络相关设置▼</a>
+          <a href="#ransom-basic" class="is-active" data-i18n="ransomMenu">勒索防护设置▼</a>
+          <div class="submenu">
+            <a href="#ransom-basic" data-page-link="basic" class="is-active" data-i18n="basicSettings">基本设置</a>
+            <a href="#ransom-quarantine" data-page-link="quarantine" data-i18n="quarantine">隔离区设置</a>
+            <a href="#ransom-backup" data-page-link="backup-zone" data-i18n="backupZone">安全备份区设置</a>
+            <a href="#ransom-smb" data-page-link="smb" data-i18n="smbList">NAS 黑白名单</a>
+            <a href="#blocked-conn" data-i18n="eventRecord">事件记录▼</a>
+            <a href="#blocked-conn" data-page-link="blocked-conn" data-i18n="blockedConnections" class="submenu-child">阻断链接</a>
+            <a href="#event-detect" data-page-link="event-detect" data-i18n="eventDetectLog" class="submenu-child">勒索检测日志</a>
+            <a href="#event-quarantine" data-page-link="event-quarantine" data-i18n="eventQuarantineLog" class="submenu-child">隔离区</a>
+          </div>
+          <a href="#" data-i18n="statusView">状态显示▼</a>
+          <a href="#" data-i18n="maintenance">维护▼</a>
+          <a href="#" data-i18n="userData">用户数据管理</a>
+          <a href="#" data-i18n="recordings">通话录音数据</a>
+        </nav>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="card page" data-page="basic">
+        <div class="page-heading">
+          <h2 data-i18n="basicSettings">基本设置</h2>
+          <button class="btn btn-primary" data-action="save-basic" data-i18n="saveConfig">保存配置</button>
+        </div>
+
+        <div class="setting-block">
+          <div class="setting-main">
+            <div>
+              <h3 data-i18n="defenseTitle">勒索攻击防御</h3>
+              <p data-i18n="defenseDesc">总开关控制本体防护、SMB防护、云连携防护和恢复动作策略，保护文件类型策略</p>
+            </div>
+            <label class="checkbox-line">
+              <input type="checkbox" id="defenseEnabled" checked />
+              <span data-i18n="enabled">启用</span>
+            </label>
+          </div>
+
+          <div id="defenseChildren" class="setting-children">
+            <div class="inline-row">
+              <label class="checkbox-line">
+                <input type="checkbox" id="localEnabled" checked />
+                <span data-i18n="localProtect">GF2000 本体勒索防护</span>
+              </label>
+              <label class="checkbox-line">
+                <input type="checkbox" id="smbEnabled" checked />
+                <span data-i18n="smbProtect2">SMB 勒索防护</span>
+              </label>
+              <label class="checkbox-line">
+                <input type="checkbox" id="cloudLinkEnabled" checked />
+                <span data-i18n="cloudLinkProtect">云连携勒索防护</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <div class="group-title" data-i18n="actionAfterDetect" style="border-bottom: 2px solid var(--line); margin:1.2rem 0 0.5rem 0">发现勒索病毒后动作</div>
+              <label class="radio">
+                <input type="radio" name="recoverAction" value="auto" checked />
+                <span data-i18n="autoRecover">自动恢复文件（默认）</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="recoverAction" value="manual" />
+                <span data-i18n="manualRecover">手动恢复文件</span>
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <div class="group-title" data-i18n="fileTypeTitle" style="border-bottom: 2px solid var(--line); margin:1.2rem 0 0.5rem 0">保护文件类型</div>
+              <label class="radio">
+                <input type="radio" name="fileTypeMode" value="all" checked />
+                <span data-i18n="fileTypeAll">保护所有文件类型（默认）</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="fileTypeMode" value="specified" />
+                <span data-i18n="fileTypeSpecified">保护指定文件类型</span>
+              </label>
+              <div id="fileTypeListWrap" style="margin-top: 6px;">
+                <p class="hint" data-i18n="fileTypeHint">文件扩展名列表（以 ; 或 , 分隔）</p>
+                <textarea id="fileTypeList" rows="4" disabled style="width: 100%; min-height: 80px; border: 1px solid var(--input-border); border-radius: 4px; background: var(--input-bg); padding: 6px 12px; font-size: 15px; line-height: 1.4; resize: vertical; opacity: 0.5; cursor: not-allowed;">7z,ai,bmp,cer,cfg,chm,crt,csv,dcm,der,doc,docx,dotm,dotx,dwg,efi,eps,gif,hwp,hwpx,jbw,jpeg,jpg,jps,jtd,key,lic,lnk,mp3,nc,odp,ods,odt,ogg,one,ost,p12,p7b,p7c,pdf,pef,pem,pfx,png,ppt,pptx,psd,pst,ptx,rar,rdp,rtf,srw,tap,tif,tiff,txt,uti,x3f,xls,xlsb,xlsm,xlsx,xps,zip</textarea>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <div class="group-title" data-i18n="ruleVersion" style="border-bottom: 2px solid var(--line);margin:1.2rem 0 0.5rem 0">规则库版本</div>
+			  <span data-i18n="currentVersion">版本号：1.0.5</span>
+			</div>
+
+          </div>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" style="display:none !important" data-page="exception">
+        <div class="page-heading">
+          <h2 data-i18n="exceptionSettings">例外设置</h2>
+          <button class="btn btn-primary" data-action="save-exception" data-i18n="saveConfig">保存配置</button>
+        </div>
+
+        <div class="grid-2">
+          <div class="list-panel">
+            <h3 data-i18n="exceptionFiles">例外文件</h3>
+            <div class="input-row">
+              <input id="exceptionFileInput" type="text" data-i18n-placeholder="placeholderFile" placeholder="例如：C:\Docs\safe.docx" />
+              <button class="btn" id="addExceptionFile" data-i18n="add">新增</button>
+            </div>
+            <p class="error-text" id="exceptionFileError"></p>
+            <ul class="list" id="exceptionFileList"></ul>
+            <p class="empty-text" id="exceptionFileEmpty" data-i18n="noExceptionFiles">暂无例外文件</p>
+          </div>
+
+          <div class="list-panel">
+            <h3 data-i18n="exceptionFolders">例外文件夹</h3>
+            <div class="input-row">
+              <input id="exceptionFolderInput" type="text" data-i18n-placeholder="placeholderFolder" placeholder="例如：D:\Projects\Archive\" />
+              <button class="btn" id="addExceptionFolder" data-i18n="add">新增</button>
+            </div>
+            <p class="error-text" id="exceptionFolderError"></p>
+            <ul class="list" id="exceptionFolderList"></ul>
+            <p class="empty-text" id="exceptionFolderEmpty" data-i18n="noExceptionFolders">暂无例外文件夹</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" data-page="quarantine">
+        <div class="page-heading">
+          <h2 data-i18n="quarantine">隔离区设置</h2>
+          <button class="btn btn-primary" data-action="save-quarantine" data-i18n="saveConfig">保存配置</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="quarantinePath" data-i18n="quarantinePath">隔离区路径</label>
+            <input id="quarantinePath" type="text" value="/var/lib/gf2000/rguard-store/quarantine" readonly />
+            <p class="hint" data-i18n="quarantineHint">建议使用独立分区，避免影响业务盘。</p>
+          </div>
+          <div class="form-group">
+            <label for="quarantineSize" data-i18n="quarantineSize">隔离区大小（GB）</label>
+            <input id="quarantineSize" type="number" min="1" step="1" value="200" />
+            <p class="error-text" id="quarantineSizeError"></p>
+          </div>
+        </div>
+
+        <div class="usage-card">
+          <div class="usage-head">
+            <span data-i18n="usage">使用情况</span>
+            <strong id="usageText">37%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="usageBar" style="width: 37%"></div>
+          </div>
+          <p class="hint" id="usageDetail">已使用 74GB / 200GB</p>
+        </div>
+
+        <div class="danger-zone">
+          <div>
+            <h3 data-i18n="dangerOps">危险操作</h3>
+            <p data-i18n="dangerDesc">清空后将移除隔离区内的全部内容，请谨慎操作。</p>
+          </div>
+          <button class="btn btn-danger" id="clearQuarantine" data-i18n="clearQuarantine">清空隔离区</button>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" data-page="smb">
+        <div class="page-heading">
+          <h2 data-i18n="smbList">NAS 黑白名单</h2>
+        </div>
+
+        <p class="hint" data-i18n="smbHint">支持格式：単IP（192.168.1.10）、IP段（192.168.1.10-192.168.1.50）、掩码/CIDR（192.168.1.0/24）。冲突时按白名单优先生效。</p>
+
+        <div class="section-box">
+          <h3 style="margin:12px 0 6px" data-i18n="ipBlackWhiteList">IP 黑白名单</h3>
+          <p class="hint" data-i18n="ipBlackWhiteHint" style="margin-bottom: 8px;">白名单中IP将跳过勒索检测，黑名单中的IP将直接拒绝SMB访问。</p>
+          <div class="grid-2">
+            <div class="list-panel">
+              <h3 data-i18n="smbBlacklist">IP 黑名单</h3>
+              <div class="input-row">
+                <input id="smbBlackInput" type="text" data-i18n-placeholder="placeholderSmb" placeholder="输入IP / IP段 / CIDR" />
+                <button class="btn" id="addSmbBlack" data-i18n="add">新增</button>
+              </div>
+              <p class="error-text" id="smbBlackError"></p>
+              <ul class="list" id="smbBlackList"></ul>
+              <p class="empty-text" id="smbBlackEmpty" data-i18n="noBlacklist">暂无黑名单记录</p>
+            </div>
+
+            <div class="list-panel">
+              <h3 data-i18n="smbWhitelist">IP 白名单</h3>
+              <div class="input-row">
+                <input id="smbWhiteInput" type="text" data-i18n-placeholder="placeholderSmb" placeholder="输入IP / IP段 / CIDR" />
+                <button class="btn" id="addSmbWhite" data-i18n="add">新增</button>
+              </div>
+              <p class="error-text" id="smbWhiteError"></p>
+              <ul class="list" id="smbWhiteList"></ul>
+              <p class="empty-text" id="smbWhiteEmpty" data-i18n="noWhitelist">暂无白名单记录</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-box">
+          <h3 style="margin:18px 0 6px" data-i18n="userBlackWhiteList">用户黒白名单</h3>
+          <p class="hint" data-i18n="userWhitelistHint">白名单中的用户将跳过勒索检测，黑名单中的用户将直接拒绝访问。</p>
+          <div class="grid-2">
+            <div class="list-panel">
+              <h3 data-i18n="blUsers">用户黑名单</h3>
+              <div class="input-row">
+                <button class="btn" id="addBlUser" data-i18n="add">新增</button>
+              </div>
+              <p class="error-text" id="blUserError"></p>
+              <ul class="list" id="blUserList"></ul>
+              <p class="empty-text" id="blUserEmpty" data-i18n="noBlUsers">暂无黑名单用户</p>
+            </div>
+
+            <div class="list-panel">
+              <h3 data-i18n="wlUsers">用户白名单</h3>
+              <div class="input-row">
+                <button class="btn" id="addWlUser" data-i18n="add">新增</button>
+              </div>
+              <p class="error-text" id="wlUserError"></p>
+              <ul class="list" id="wlUserList"></ul>
+              <p class="empty-text" id="wlUserEmpty" data-i18n="noWlUsers">暂无白名单用户</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" data-page="backup-zone">
+        <div class="page-heading">
+          <h2 data-i18n="backupZone">安全备份区设置</h2>
+          <button class="btn btn-primary" data-action="save-backup" data-i18n="saveConfig">保存配置</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="backupPath" data-i18n="backupPath">备份区路径</label>
+            <input id="backupPath" type="text" value="/var/lib/gf2000/rguard-store/backups" readonly />
+            <p class="hint" data-i18n="backupHint">建议与隔离区分离，防止恢复文件被重复加密。</p>
+          </div>
+          <div class="form-group">
+              <label for="backupSize" data-i18n="backupSize">备份区大小（GB）</label>
+              <input id="backupSize" type="number" min="1" step="1" value="2" />
+              <p class="error-text" id="backupSizeError"></p>
+            </div>
+        </div>
+
+        <div class="usage-card">
+          <div class="usage-head">
+            <span data-i18n="backupUsage">使用情况</span>
+            <strong id="backupUsageText">20%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="backupUsageBar" style="width: 20%"></div>
+          </div>
+          <p class="hint" id="backupUsageDetail">已使用 60GB / 300GB</p>
+        </div>
+
+        <div class="danger-zone">
+          <div>
+            <h3 data-i18n="backupDangerOps">危险操作</h3>
+            <p data-i18n="backupDangerDesc">清空后将删除备份区全部历史副本，请谨慎操作。</p>
+          </div>
+          <button class="btn btn-danger" id="clearBackupZone" data-i18n="clearBackup">清空安全备份区</button>
+        </div>
+      </section>
+
+
+      <section class="card page is-hidden" data-page="event-detect">
+        <div class="event-panel">
+          <div class="sheet-tabs" style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <div class="sheet-tab-bar">
+              <div id="sheetBlockedTab" class="sheet-tab" data-i18n="blockedLog">${t('blockedLog')}</div>
+              <div id="sheetRestoredTab" class="sheet-tab" data-i18n="restoredLog">${t('restoredLog')}</div>
+            </div>
+          </div>
+          <div id="sheetBlockedPanel">
+            <div class="event-panel-head"><h2 data-i18n="blockedLog">阻断事件</h2></div>
+            <div class="table-wrap">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="colEventId">事件ID</th>
+                    <th data-i18n="colUser">用户</th>
+                    <th data-i18n="colClientIp">客户端IP</th>
+                    <th data-i18n="colDate">日期</th>
+                    <th data-i18n="colRiskScore">风险评分</th>
+                    <th data-i18n="colFilesProtected">保护文件数</th>
+                    <th data-i18n="colFilesCreated">创建文件数</th>
+                    <th data-i18n="colAction">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="detectLogBody"></tbody>
+              </table>
+            </div>
+            <p class="empty-text" id="detectLogEmpty" data-i18n="noBlockedLogs" style="display:none">暂无阻断记录</p>
+          </div>
+          <div id="sheetRestoredPanel" style="display:none;">
+            <div class="event-panel-head"><h2 data-i18n="restoredLog">已恢复事件</h2></div>
+            <div class="table-wrap">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="colEventId">事件ID</th>
+                    <th data-i18n="colUser">用户</th>
+                    <th data-i18n="colClientIp">客户端IP</th>
+                    <th data-i18n="colDate">日期</th>
+                    <th data-i18n="colRestoreTime">恢复时间</th>
+                    <th data-i18n="colFilesRestored">恢复文件数</th>
+                    <th data-i18n="colFilesDeleted">删除文件数</th>
+                    <th data-i18n="colAction">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="restoredLogBody"></tbody>
+              </table>
+            </div>
+            <p class="empty-text" id="restoredLogEmpty" data-i18n="noRestoredLogs" style="display:none">暂无恢复记录</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" data-page="blocked-conn">
+        <div class="event-panel">
+            <div class="event-panel-head">
+              <h2 data-i18n="blockedConnections">阻断链接</h2>
+            </div>
+            <div class="table-wrap">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="colUser">用户</th>
+                    <th data-i18n="colClientIp">客户端IP</th>
+                    <th data-i18n="colAction">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="blockedConnBody"></tbody>
+              </table>
+            </div>
+            <p class="empty-text" id="blockedConnEmpty" data-i18n="noBlockedConnections" style="display:none">暂无阻断链接</p>
+        </div>
+      </section>
+
+      <section class="card page is-hidden" data-page="event-quarantine">
+        <div class="event-panel">
+            <div class="event-panel-head">
+              <h2 data-i18n="eventQuarantineLog">隔离区</h2>
+            </div>
+
+            <div class="table-wrap">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="colUser">用户</th>
+                    <th data-i18n="colClientIp">客户端IP</th>
+                    <th data-i18n="colEventTime">事件时间</th>
+                    <th data-i18n="colQuarantineTime">隔离时间</th>
+                    <th data-i18n="colFileCount">文件数</th>
+                    <th data-i18n="colAction">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="quarantineLogBody"></tbody>
+              </table>
+            </div>
+            <p class="empty-text" id="quarantineLogEmpty" data-i18n="noQuarantineLogs" style="display:none">暂无隔离记录</p>
+        </div>
+      </section>
+
+      <!-- File detail modal -->
+      <div id="fileDetailOverlay" class="modal-overlay is-hidden" onclick="closeFileDetail(event)">
+        <div class="modal-box" onclick="event.stopPropagation()">
+          <div class="modal-head">
+            <h3 id="fileDetailTitle" data-i18n="fileDetail">文件详情</h3>
+            <button class="btn btn-ghost" onclick="closeFileDetail()">&times;</button>
+          </div>
+          <div class="table-wrap" style="max-height:55vh;overflow:auto;">
+            <table class="log-table">
+              <thead id="fileDetailHead" style="position:sticky;top:0;background:#fff;z-index:2">
+                <tr>
+                  <th data-i18n="colPath">路径</th>
+                  <th data-i18n="colDetectTime">检测时间</th>
+                  <th data-i18n="colOpType">动作类型</th>
+                  <th data-i18n="colSize">大小</th>
+                  <th data-i18n="colRestoreStatus">恢复状态</th>
+                </tr>
+              </thead>
+              <tbody id="fileDetailBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="toast"></div>
+    </main>
+  </div>
+
+  <script>
+    const i18n = {
+      zh: {
+        langLabel: '语言',
+        logout: '登出',
+        reboot: '重启',
+        menuWizard: '设置向导',
+        wizard1: '1. 基本设置向导',
+        wizard2: '2. 服务器连通确认',
+        wizard3: '3. 产品启用',
+        wizard4: '4. 用户管理▼',
+        wizard5: '5. 联动功能设置（可选）▼',
+        wizard6: '6. 设置确认',
+        menuAdvanced: '详细设置',
+        securityMgmt: '信息安全管理▼',
+        networkSettings: '网络相关设置▼',
+        ransomMenu: '勒索防护设置▼',
+        basicSettings: '基本设置',
+        exceptionSettings: '例外设置',
+        quarantine: '隔离区设置',
+        backupZone: '安全备份区设置',
+        smbList: 'NAS 黑白名单',
+        eventRecord: '事件记录▼',
+        eventLog: '事件日志',
+        eventDetectLog: '勒索检测日志',
+        blockedLog: '阻断事件',
+        restoredLog: '已恢复事件',
+        noBlockedLogs: '暂无阻断记录',
+        noRestoredLogs: '暂无恢复记录',
+        colRestoreTime: '恢复时刻',
+        eventQuarantineLog: '隔离区',
+        search: '搜索',
+        changeDateRange: '更改日期范围',
+        openFileLocation: '打开文件位置',
+        statusView: '状态显示▼',
+        maintenance: '维护▼',
+        userData: '用户数据管理',
+        recordings: '通话录音数据',
+        ransomTitle: '勒索防护设置',
+        ransomDesc: '通过分层防护、例外名单与隔离区策略，降低勒索攻击带来的业务风险。',
+        saveConfig: '保存配置',
+        defenseTitle: '勒索攻击防御',
+        defenseDesc: '总开关控制本体防护、SMB防护、云连携防护和恢复动作策略，保护文件类型策略',
+        enabled: '启用',
+        cloudProtect: '云盘防护',
+        smbProtect: 'NAS防护',
+        actionAfterDetect: '发现勒索病毒后动作',
+        autoRecover: '自动恢复文件（默认）',
+        manualRecover: '手动恢复文件',
+        exceptionFiles: '例外文件',
+        exceptionFolders: '例外文件夹',
+        localProtect: 'GF2000 本体勒索防护',
+        smbProtect2: 'SMB 勒索防护',
+        cloudLinkProtect: '云连携勒索防护',
+        fileTypeTitle: '保护文件类型',
+        fileTypeAll: '保护所有文件类型（默认）',
+        fileTypeSpecified: '保护指定文件类型',
+        fileTypeHint: '文件扩展名列表（以 ; 或 , 分隔）',
+    		ipBlackWhiteHint: '白名单中IP将跳过勒索检测，黑名单中的IP将直接拒绝SMB访问。',
+		extensionHint: '默认防护常见的可执行文件、文档、图片等类型，启用后将防护所有文件类型，但可能增加误报风险。',
+        add: '新增',
+        noExceptionFiles: '暂无例外文件',
+        noExceptionFolders: '暂无例外文件夹',
+        quarantinePath: '隔离区路径',
+        quarantineHint: '建议使用独立分区，避免影响业务盘。',
+        quarantineSize: '隔离区大小（GB）',
+        usage: '使用情况',
+        backupPath: '备份区路径',
+        backupHint: '建议与隔离区分离，防止恢复文件被重复加密。',
+        backupSize: '备份区大小（GB）',
+        backupUsage: '使用情况',
+        dangerOps: '危险操作',
+        dangerDesc: '清空后将移除隔离区内的全部内容，请谨慎操作。',
+        backupDangerOps: '危险操作',
+        backupDangerDesc: '清空后将删除备份区全部历史副本，请谨慎操作。',
+        clearQuarantine: '清空隔离区',
+        clearBackup: '清空安全备份区',
+        smbHint: '支持格式：单IP（192.168.1.10）、IP段（192.168.1.10-192.168.1.50）、掩码/CIDR（192.168.1.0/24）。冲突时按白名单优先生效。',
+        smbBlacklist: 'IP 黑名单',
+        smbWhitelist: 'IP 白名单',
+        noBlacklist: '暂无黑名单记录',
+        noWhitelist: '暂无白名单记录',
+        placeholderFile: '例如：C:\\Docs\\safe.docx',
+        placeholderFolder: '例如：D:\\Projects\\Archive\\',
+        placeholderSmb: '输入IP / IP段 / CIDR',
+        toastSaved: '配置已保存',
+        delete: '删除',
+        usageDetail: '已使用 {used}GB / {size}GB',
+        backupUsageDetail: '已使用 {used}GB / {size}GB',
+        errInputPath: '请输入路径',
+        errInvalidFolder: '请输入有效的文件夹路径',
+        errInvalidFile: '请输入有效的文件路径',
+        errQuarantineSize: '隔离区大小必须为大于等于 1 的 GB 整数',
+        errBackupSize: '备份区大小必须为大于等于 1 的 GB 整数',
+        confirmClear1: '确认清空隔离区？',
+        confirmClear2: '此操作不可撤销，确认继续？',
+        confirmClearBackup1: '确认清空安全备份区？',
+        confirmClearBackup2: '此操作不可撤销，确认继续？',
+        toastCleared: '隔离区已清空',
+        toastBackupCleared: '安全备份区已清空',
+        errInputSmb: '请输入IP、IP段或CIDR',
+        errInvalidSmb: '格式无效，请输入有效IP、IP段或CIDR',
+        errExists: '该记录已存在',
+        colDate: '日期',
+        colEventId: '事件ID',
+        colUser: '用户',
+        colClientIp: '客户端IP',
+        colRiskScore: '风险评分',
+        colFilesProtected: '保护文件数',
+		colFilesCreated: '创建文件数',
+		colFilesRestored: '恢复文件数',
+		colFilesDeleted: '删除文件数',
+        colFilesAffected: '受影响文件数',
+        colFileCount: '文件数',
+        colEventTime: '事件时间',
+        colQuarantineTime: '隔离时间',
+        colEngine: '检测引擎',
+        colType: '类型',
+        colFileName: '文件名',
+        colTime: '检测时间',
+        colPath: '文件路径',
+        colVirus: '威胁名称',
+        colAction: '处理动作',
+        colResult: '处理结果',
+        colSize: '文件大小',
+        colStatus: '隔离状态',
+        colSource: '来源策略',
+        statusQuarantined: '已隔离',
+        actionBlocked: '阻断并恢复',
+        actionQuarantined: '写入隔离区',
+        resultSuccess: '成功',
+        noDetectLogs: '暂无检测记录',
+        noQuarantineLogs: '暂无隔离记录',
+        restore: '恢复',
+        restored: '已恢复',
+        restoring: '恢复中...',
+        restoreSuccess: '恢复成功',
+        restoreFail: '恢复失败',
+        deleteQuarantineEvent: '删除',
+        statusBlocked: '已阻断',
+        statusRestored: '已恢复',
+        fileDetail: '文件详情',
+        viewFiles: '查看',
+        detailFiles: '详情',
+        colDetectTime: '检测时间',
+        colOpType: '动作类型',
+		colRestoreType: '恢复动作',
+        colRestoreStatus: '恢复状态',
+        opOpen: '修改',
+        opWrite: '覆盖',
+        opTruncate: '截断',
+        opRename: '重命名',
+        opDelete: '删除',
+        opClose: '关闭',
+        opCreate: '新建',
+        opUnknown: '未知',
+		opRestore: '还原',
+        userWhitelist: '用户黑白名单',
+        userWhitelistHint: '白名单中的用户将跳过勒索检测，黑名单中的用户将直接拒绝访问。',
+        ipBlackWhiteList: 'IP 黑白名单',
+        userBlackWhiteList: '用户黑白名单',
+        wlUsers: '用户白名单',
+        blUsers: '用户黑名单',
+		smbUsers: '请选择SMB用户',
+        noWlUsers: '暂无白名单用户',
+        noBlUsers: '暂无黑名单用户',
+        placeholderUser: '输入用户名',
+        errInputUser: '请输入用户名',
+        restoreFromQuarantine: '从隔离区恢复',
+        restoreSelected: '恢复所选',
+		deleteSelected: '删除所选',
+        restoreAll: '全部恢复',
+        confirmRestoreQuarantine: '确认从隔离区恢复文件？',
+        restoreQuarantineSuccess: '隔离区文件恢复成功',
+        restoreQuarantineFail: '隔离区文件恢复失败',
+        selectAll: '全选',
+        blockedConnections: '阻断链接',
+        noBlockedConnections: '暂无阻断链接',
+        colSessionKey: '会话标识',
+        unblock: '解除阻断',
+        unblocking: '解除中...',
+        unblockSuccess: '已解除阻断',
+        unblockFail: '解除阻断失败',
+		noUsersAvailable: '当前系统无可添加用户',
+		opConfirm: '确认',
+		opCancel: '取消',
+		ruleVersion: '规则库版本',
+		currentVersion: '版本号：1.0.5',
+      },
+      ja: {
+        langLabel: '言語',
+        logout: 'ログアウト',
+        reboot: '再起動',
+        menuWizard: 'セットアップ',
+        wizard1: '1. 基本設定ウィザード',
+        wizard2: '2. サーバー疎通確認',
+        wizard3: '3. 製品の利用開始',
+        wizard4: '4. ユーザー管理▼',
+        wizard5: '5. 連携機能設定（任意）▼',
+        wizard6: '6. 設定確認',
+        menuAdvanced: '詳細設定',
+        securityMgmt: '情報セキュリティ管理▼',
+        networkSettings: 'ネットワーク関連設定▼',
+        ransomMenu: 'ランサム防護設定▼',
+        basicSettings: '基本設定',
+        exceptionSettings: '例外設定',
+        quarantine: '隔離領域設定',
+        backupZone: '安全バックアップ領域設定',
+        smbList: 'NAS ホワイト/ブラックリスト',
+        eventRecord: 'イベント記録▼',
+        eventLog: 'イベントログ',
+        eventDetectLog: 'ランサム検知ログ',
+        blockedLog: 'ブロックイベント',
+        restoredLog: '復元済みイベント',
+        noBlockedLogs: 'ブロック記録なし',
+        noRestoredLogs: '復元記録なし',
+        colRestoreTime: '復元時刻',
+        eventQuarantineLog: '隔離領域',
+        search: '検索',
+        changeDateRange: '期間を変更',
+        openFileLocation: 'ファイル場所を開く',
+        statusView: '状態表示▼',
+        maintenance: 'メンテナンス▼',
+        userData: 'ユーザーデータ管理',
+        recordings: '通話録音データ',
+        ransomTitle: 'ランサム防護設定',
+        ransomDesc: '多層防護・例外リスト・隔離ポリシーにより、ランサム攻撃による業務リスクを低減します。',
+        saveConfig: '設定保存',
+        defenseTitle: 'ランサム攻撃防御',
+        defenseDesc: 'メインスイッチで本体防護、SMB防護、クラウド連携防護、復旧動作、保護ファイル種別を制御します',
+        enabled: '有効',
+        cloudProtect: 'クラウド防護',
+        smbProtect: 'NAS防護',
+        actionAfterDetect: 'ランサム検知後の動作',
+        autoRecover: '自動でファイル復元（既定）',
+        manualRecover: '手動でファイル復元',
+        exceptionFiles: '例外ファイル',
+        exceptionFolders: '例外フォルダ',
+        localProtect: 'GF2000 本体ランサム防護',
+        smbProtect2: 'SMB ランサム防護',
+        cloudLinkProtect: 'クラウド連携ランサム防護',
+        fileTypeTitle: '保護ファイル種別',
+        fileTypeAll: 'すべてのファイル種別を保護（既定）',
+        fileTypeSpecified: '指定ファイル種別のみ保護',
+        fileTypeHint: 'ファイル拡張子リスト（ ; または , で区切り）',
+		extensionHint: '既定では一般的な実行ファイル、ドキュメント、画像などを防護します。すべてのファイルタイプを防護すると誤検知のリスクが高まる可能性があります。',
+        add: '追加',
+        noExceptionFiles: '例外ファイルはありません',
+        noExceptionFolders: '例外フォルダはありません',
+        quarantinePath: '隔離パス',
+        quarantineHint: '業務ディスクに影響しない独立パーティションの使用を推奨します。',
+        quarantineSize: '隔離容量（GB）',
+        usage: '使用率',
+        backupPath: 'バックアップ領域パス',
+        backupHint: '隔離領域と分離し、復元ファイルの再暗号化を防ぐことを推奨します。',
+        backupSize: 'バックアップ容量（GB）',
+        backupUsage: '使用率',
+        dangerOps: '危険操作',
+        dangerDesc: '実行すると隔離領域の内容を削除します。ご注意ください。',
+        backupDangerOps: '危険操作',
+        backupDangerDesc: '実行するとバックアップ領域の履歴コピーをすべて削除します。ご注意ください。',
+        clearQuarantine: '隔離領域を空にする',
+        clearBackup: '安全バックアップ領域を空にする',
+        smbHint: '対応形式：単一IP（192.168.1.10）、IP範囲（192.168.1.10-192.168.1.50）、CIDR（192.168.1.0/24）。競合時はホワイトリスト優先。',
+		ipBlackWhiteHint: 'ホワイトリストのIPはランサム検知をスキップし、ブラックリストのIPはSMBアクセスを拒否します。',
+        smbBlacklist: 'IP ブラックリスト',
+        smbWhitelist: 'IP ホワイトリスト',
+        noBlacklist: 'ブラックリストの記録はありません',
+        noWhitelist: 'ホワイトリストの記録はありません',
+        placeholderFile: '例：C:\\Docs\\safe.docx',
+        placeholderFolder: '例：D:\\Projects\\Archive\\',
+        placeholderSmb: 'IP / 範囲 / CIDR を入力',
+        toastSaved: '設定を保存しました',
+        delete: '削除',
+        usageDetail: '{used}GB / {size}GB 使用中',
+        backupUsageDetail: '{used}GB / {size}GB 使用中',
+        errInputPath: 'パスを入力してください',
+        errInvalidFolder: '有効なフォルダパスを入力してください',
+        errInvalidFile: '有効なファイルパスを入力してください',
+        errQuarantineSize: '隔離容量は 1 以上の整数（GB）で入力してください',
+        errBackupSize: 'バックアップ容量は 1 以上の整数（GB）で入力してください',
+        confirmClear1: '隔離領域を空にしますか？',
+        confirmClear2: 'この操作は取り消せません。続行しますか？',
+        confirmClearBackup1: '安全バックアップ領域を空にしますか？',
+        confirmClearBackup2: 'この操作は取り消せません。続行しますか？',
+        toastCleared: '隔離領域を空にしました',
+        toastBackupCleared: '安全バックアップ領域を空にしました',
+        errInputSmb: 'IP、範囲、またはCIDRを入力してください',
+        errInvalidSmb: '形式が無効です。有効なIP、範囲、またはCIDRを入力してください',
+        errExists: 'この項目は既に存在します',
+        colDate: '日付',
+        colEventId: 'イベントID',
+        colUser: 'ユーザー',
+        colClientIp: 'クライアントIP',
+        colRiskScore: 'リスクスコア',
+        colFilesProtected: '保護ファイル数',
+		colFilesCreated: '作成ファイル数',
+		colFilesRestored: '復元ファイル数',
+		colFilesDeleted: '削除ファイル数',
+        colFilesAffected: '影響ファイル数',
+        colFileCount: 'ファイル数',
+        colEventTime: 'イベント時刻',
+        colQuarantineTime: '隔離時刻',
+        colEngine: '検知エンジン',
+        colType: '種別',
+        colFileName: 'ファイル名',
+        colTime: '検知時刻',
+        colPath: 'ファイルパス',
+        colVirus: '脅威名',
+        colAction: '処理動作',
+        colResult: '処理結果',
+        colSize: 'ファイルサイズ',
+        colStatus: '隔離状態',
+        colSource: '適用ポリシー',
+        statusQuarantined: '隔離済み',
+        actionBlocked: 'ブロックして復元',
+        actionQuarantined: '隔離領域へ移動',
+        resultSuccess: '成功',
+        noDetectLogs: '検知記録はありません',
+        noQuarantineLogs: '隔離記録はありません',
+        restore: '復元',
+        restored: '復元済み',
+        restoring: '復元中...',
+        restoreSuccess: '復元に成功しました',
+        restoreFail: '復元に失敗しました',
+        deleteQuarantineEvent: '削除',
+        statusBlocked: 'ブロック済み',
+        statusRestored: '復元済み',
+        fileDetail: 'ファイル詳細',
+        viewFiles: '表示',
+        detailFiles: '詳細',
+        colDetectTime: '検知時刻',
+        colOpType: '動作種別',
+		colRestoreType: '復元動作',
+        colRestoreStatus: '復元状態',
+        opOpen: '変更',
+        opWrite: '上書き',
+        opTruncate: '切り詰め',
+        opRename: 'リネーム',
+        opDelete: '削除',
+        opClose: 'クローズ',
+        opCreate: '新規作成',
+        opUnknown: '不明',
+        opRestore: '復元',
+        userWhitelist: 'ユーザーホワイト/ブラックリスト',
+        userWhitelistHint: 'ホワイトリストのユーザーはランサム検知をスキップし、ブラックリストのユーザーはアクセスを拒否します。',
+        ipBlackWhiteList: 'IP ブラック/ホワイトリスト',
+        userBlackWhiteList: 'ユーザーブラック/ホワイトリスト',
+        wlUsers: 'ユーザーホワイトリスト',
+        blUsers: 'ユーザーブラックリスト',
+		smbUsers: 'SMBユーザーを選択してください',
+        noWlUsers: 'ホワイトリストのユーザーはありません',
+        noBlUsers: 'ブラックリストのユーザーはありません',
+        placeholderUser: 'ユーザー名を入力',
+        errInputUser: 'ユーザー名を入力してください',
+        restoreFromQuarantine: '隔離領域から復元',
+        restoreSelected: '選択を復元',
+		deleteSelected: '選択を削除',
+        restoreAll: 'すべて復元',
+        confirmRestoreQuarantine: '隔離領域からファイルを復元しますか？',
+        restoreQuarantineSuccess: '隔離ファイルの復元に成功しました',
+        restoreQuarantineFail: '隔離ファイルの復元に失敗しました',
+        selectAll: '全選択',
+        blockedConnections: 'ブロック接続',
+        noBlockedConnections: 'ブロック接続なし',
+        colSessionKey: 'セッションキー',
+        unblock: 'ブロック解除',
+        unblocking: '解除中...',
+        unblockSuccess: 'ブロックを解除しました',
+        unblockFail: 'ブロック解除に失敗しました',
+		noUsersAvailable: '現在、追加可能なユーザーがいません',
+		opConfirm: '確認',
+		opCancel: 'キャンセル',
+		ruleVersion: 'ルールバージョン',
+		currentVersion: 'バージョン：1.0.5',
+      }
+    };
+
+    let currentLang = localStorage.getItem('uiLang') || 'zh';
+
+    function t(key) {
+      return (i18n[currentLang] && i18n[currentLang][key]) || i18n.zh[key] || key;
+    }
+
+    function applyLanguage(lang) {
+      currentLang = i18n[lang] ? lang : 'zh';
+      document.documentElement.lang = currentLang;
+      localStorage.setItem('uiLang', currentLang);
+      const selector = document.getElementById('languageSelect');
+      if (selector) selector.value = currentLang;
+
+      document.querySelectorAll('[data-i18n]').forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+        node.placeholder = t(node.dataset.i18nPlaceholder);
+      });
+
+      refreshUsage();
+      refreshBackupUsage();
+    }
+
+
+    const pageLinks = document.querySelectorAll('[data-page-link]');
+    const pages = document.querySelectorAll('.page');
+    const languageSelect = document.getElementById('languageSelect');
+    languageSelect.addEventListener('change', (e) => applyLanguage(e.target.value));
+
+    function hideQfRestoreBtns() {
+      const btnRow = document.getElementById('qfRestoreBtns');
+      if (btnRow) btnRow.style.display = 'none';
+    }
+
+    function activatePage(pageName) {
+      pages.forEach((page) => {
+        page.classList.toggle('is-hidden', page.dataset.page !== pageName);
+      });
+      pageLinks.forEach((link) => {
+        link.classList.toggle('is-active', link.dataset.pageLink === pageName);
+      });
+      // sheet页切换初始化
+      if (pageName === 'event-detect') {
+        showSheetTab('blocked');
+        loadDetectEvents();
+      } else if (pageName === 'blocked-conn') {
+        loadBlockedConnections();
+      } else if (pageName === 'event-quarantine') {
+        loadQuarantineLog();
+      } else if (pageName === 'quarantine') {
+        loadQuarantineLog();
+      } else if (pageName === 'backup-zone') {
+        loadStorageUsage();
+      } else if (pageName === 'smb') {
+        loadBlackWhiteList();
+      } else if (pageName === 'basic') {
+        loadConfig();
+      }
+    }
+
+    function routeFromHash() {
+      const hash = window.location.hash || '#ransom-basic';
+      if (hash === '#ransom-quarantine') activatePage('quarantine');
+      else if (hash === '#ransom-backup') activatePage('backup-zone');
+      else if (hash === '#ransom-smb') activatePage('smb');
+      else if (hash === '#event-detect') activatePage('event-detect');
+      else if (hash === '#event-quarantine') activatePage('event-quarantine');
+      else if (hash === '#blocked-conn') activatePage('blocked-conn');
+      else activatePage('basic');
+    }
+
+    window.addEventListener('hashchange', routeFromHash);
+    routeFromHash();
+
+    // sheet页切换逻辑
+    function showSheetTab(tab) {
+      const blockedPanel = document.getElementById('sheetBlockedPanel');
+      const restoredPanel = document.getElementById('sheetRestoredPanel');
+      const blockedTab = document.getElementById('sheetBlockedTab');
+      const restoredTab = document.getElementById('sheetRestoredTab');
+      if (!blockedPanel || !restoredPanel || !blockedTab || !restoredTab) return;
+      if (tab === 'blocked') {
+        blockedPanel.style.display = '';
+        restoredPanel.style.display = 'none';
+        blockedTab.classList.add('is-active');
+        restoredTab.classList.remove('is-active');
+      } else {
+        blockedPanel.style.display = 'none';
+        restoredPanel.style.display = '';
+        blockedTab.classList.remove('is-active');
+        restoredTab.classList.add('is-active');
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const blockedTab = document.getElementById('sheetBlockedTab');
+      const restoredTab = document.getElementById('sheetRestoredTab');
+      if (blockedTab && restoredTab) {
+        blockedTab.addEventListener('click', () => showSheetTab('blocked'));
+        restoredTab.addEventListener('click', () => showSheetTab('restored'));
+      }
+    });
+
+    const defenseEnabled = document.getElementById('defenseEnabled');
+    const defenseChildren = document.getElementById('defenseChildren');
+
+    function refreshDefenseState() {
+      const enabled = defenseEnabled.checked;
+      defenseChildren.classList.toggle('is-disabled', !enabled);
+      defenseChildren.querySelectorAll('input').forEach((input) => {
+        input.disabled = !enabled;
+      });
+    }
+
+    defenseEnabled.addEventListener('change', refreshDefenseState);
+    refreshDefenseState();
+
+    const toast = document.getElementById('toast');
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1600);
+    }
+
+    document.querySelectorAll('[data-action^="save-"]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.action;
+        if (action === 'save-basic') saveBasicConfig();
+        else if (action === 'save-quarantine') showToast(t('toastSaved'));
+        else if (action === 'save-backup') showToast(t('toastSaved'));
+        else if (action === 'save-smb') showToast(t('toastSaved'));
+        else showToast(t('toastSaved'));
+      });
+    });
+
+    function createListItem(value, listElement, emptyElement) {
+      const item = document.createElement('li');
+      item.className = 'list-item';
+      item.innerHTML = `<span>${value}</span><button type="button" class="btn btn-ghost">${t('delete')}</button>`;
+      item.querySelector('button').addEventListener('click', () => {
+        item.remove();
+        toggleEmpty(listElement, emptyElement);
+      });
+      listElement.appendChild(item);
+      toggleEmpty(listElement, emptyElement);
+    }
+
+    function toggleEmpty(listElement, emptyElement) {
+      emptyElement.style.display = listElement.children.length > 0 ? 'none' : 'block';
+    }
+
+    function setupExceptionList(inputId, addId, listId, emptyId, errorId, isFolder) {
+      const input = document.getElementById(inputId);
+      const addBtn = document.getElementById(addId);
+      const list = document.getElementById(listId);
+      const empty = document.getElementById(emptyId);
+      const error = document.getElementById(errorId);
+
+      const fileRegex = /^[A-Za-z]:\\[^<>:"|?*]+$/;
+      const folderRegex = /^[A-Za-z]:\\[^<>:"|?*]+\\?$/;
+
+      addBtn.addEventListener('click', () => {
+        const value = input.value.trim();
+        if (!value) {
+          error.textContent = t('errInputPath');
+          return;
+        }
+
+        const valid = isFolder ? folderRegex.test(value) : fileRegex.test(value);
+        if (!valid) {
+          error.textContent = isFolder ? t('errInvalidFolder') : t('errInvalidFile');
+          return;
+        }
+
+        error.textContent = '';
+        createListItem(value, list, empty);
+        input.value = '';
+      });
+
+      toggleEmpty(list, empty);
+    }
+
+    setupExceptionList('exceptionFileInput', 'addExceptionFile', 'exceptionFileList', 'exceptionFileEmpty', 'exceptionFileError', false);
+    setupExceptionList('exceptionFolderInput', 'addExceptionFolder', 'exceptionFolderList', 'exceptionFolderEmpty', 'exceptionFolderError', true);
+
+    const quarantineSize = document.getElementById('quarantineSize');
+    const usageText = document.getElementById('usageText');
+    const usageBar = document.getElementById('usageBar');
+    const usageDetail = document.getElementById('usageDetail');
+    const quarantineSizeError = document.getElementById('quarantineSizeError');
+
+    const backupSize = document.getElementById('backupSize');
+    const backupUsageText = document.getElementById('backupUsageText');
+    const backupUsageBar = document.getElementById('backupUsageBar');
+    const backupUsageDetail = document.getElementById('backupUsageDetail');
+    const backupSizeError = document.getElementById('backupSizeError');
+
+    function refreshUsage() {
+      const size = Number(quarantineSize.value);
+      if (!Number.isInteger(size) || size < 1) {
+        quarantineSizeError.textContent = t('errQuarantineSize');
+        return;
+      }
+      quarantineSizeError.textContent = '';
+      loadStorageUsage();
+    }
+
+    function refreshBackupUsage() {
+      const size = Number(backupSize.value);
+      if (!Number.isInteger(size) || size < 1) {
+        backupSizeError.textContent = t('errBackupSize');
+        return;
+      }
+      backupSizeError.textContent = '';
+      loadStorageUsage();
+    }
+
+    quarantineSize.addEventListener('input', refreshUsage);
+    backupSize.addEventListener('input', refreshBackupUsage);
+
+    function isValidIPv4(ip) {
+      const parts = ip.split('.');
+      if (parts.length !== 4) return false;
+      return parts.every((part) => {
+        if (!/^\d+$/.test(part)) return false;
+        const n = Number(part);
+        return n >= 0 && n <= 255;
+      });
+    }
+
+    function isValidCIDR(value) {
+      const [ip, mask] = value.split('/');
+      if (!ip || mask === undefined) return false;
+      if (!isValidIPv4(ip)) return false;
+      if (!/^\d+$/.test(mask)) return false;
+      const m = Number(mask);
+      return m >= 0 && m <= 32;
+    }
+
+    function isValidRange(value) {
+      const [start, end] = value.split('-');
+      return Boolean(start && end && isValidIPv4(start) && isValidIPv4(end));
+    }
+
+    function isValidSmbInput(value) {
+      return isValidIPv4(value) || isValidCIDR(value) || isValidRange(value);
+    }
+
+    /* ---- NAS IP blacklist/whitelist (API-backed) ---- */
+
+    document.getElementById('addSmbBlack').addEventListener('click', () => {
+      const input = document.getElementById('smbBlackInput');
+      const err = document.getElementById('smbBlackError');
+      const val = input.value.trim();
+      if (!val) { err.textContent = t('errInputSmb'); return; }
+      if (!isValidSmbInput(val)) { err.textContent = t('errInvalidSmb'); return; }
+      err.textContent = '';
+      fetch('/api/blacklist/ips/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ip: val })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') { input.value = ''; loadBlackWhiteList(); }
+      }).catch(() => {});
+    });
+
+    document.getElementById('addSmbWhite').addEventListener('click', () => {
+      const input = document.getElementById('smbWhiteInput');
+      const err = document.getElementById('smbWhiteError');
+      const val = input.value.trim();
+      if (!val) { err.textContent = t('errInputSmb'); return; }
+      if (!isValidSmbInput(val)) { err.textContent = t('errInvalidSmb'); return; }
+      err.textContent = '';
+      fetch('/api/whitelist/ips/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ip: val })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') { input.value = ''; loadBlackWhiteList(); }
+      }).catch(() => {});
+    });
+
+    /* ---- API-backed data loading ---- */
+
+    function saveBasicConfig() {
+      const mode = document.getElementById('defenseEnabled').checked;
+      const autoRestore = document.querySelector('input[name="recoverAction"][value="auto"]').checked;
+      const allFiles = document.querySelector('input[name="fileTypeMode"][value="all"]').checked;
+      const fileTypeList = document.getElementById('fileTypeList').value.trim();
+      const manualExtensions = fileTypeList
+        .split(/[;,\n]/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          mode: mode,
+          auto_restore: { enabled: autoRestore },
+          file_extensions: {
+            all: allFiles,
+            manual: manualExtensions
+          }
+        })
+      }).then(r => r.json()).then(() => showToast(t('toastSaved')))
+        .catch(() => showToast('Error'));
+    }
+
+    function loadConfig() {
+      fetch('/api/config').then(r => r.json()).then(data => {
+        document.getElementById('defenseEnabled').checked = data.mode;
+        if (data.auto_restore && data.auto_restore.enabled) {
+          document.querySelector('input[name="recoverAction"][value="auto"]').checked = true;
+        } else {
+          document.querySelector('input[name="recoverAction"][value="manual"]').checked = true;
+        }
+        if (data.file_extensions) {
+          if (data.file_extensions.all) {
+            document.querySelector('input[name="fileTypeMode"][value="all"]').checked = true;
+          } else {
+            document.querySelector('input[name="fileTypeMode"][value="specified"]').checked = true;
+          }
+          document.getElementById('fileTypeList').value = (data.file_extensions.manual || []).join(', ');
+        }
+        refreshDefenseState();
+        // 触发保护文件类型输入框的可用/禁用逻辑
+        updateFileTypeListState();
+      }).catch(() => {});
+    }
+
+    // 保护文件类型单选框联动逻辑
+    function updateFileTypeListState() {
+      const allRadio = document.querySelector('input[name="fileTypeMode"][value="all"]');
+      const specifiedRadio = document.querySelector('input[name="fileTypeMode"][value="specified"]');
+      const textarea = document.getElementById('fileTypeList');
+      if (allRadio.checked) {
+        textarea.disabled = true;
+        textarea.style.opacity = 0.5;
+        textarea.style.cursor = 'not-allowed';
+      } else {
+        textarea.disabled = false;
+        textarea.style.opacity = 1;
+        textarea.style.cursor = '';
+      }
+    }
+    document.querySelectorAll('input[name="fileTypeMode"]').forEach(radio => {
+      radio.addEventListener('change', updateFileTypeListState);
+    });
+
+    // 页面加载后自动加载配置
+    window.addEventListener('DOMContentLoaded', function() {
+      loadConfig();
+    });
+
+    function loadBlockedConnections() {
+      const tbody = document.getElementById('blockedConnBody');
+      const empty = document.getElementById('blockedConnEmpty');
+      fetch('/api/blocked').then(r => r.json()).then(data => {
+        const list = data.blocked || [];
+        if (list.length === 0) {
+          tbody.innerHTML = '';
+          empty.style.display = 'block';
+        } else {
+          empty.style.display = 'none';
+          tbody.innerHTML = list.map(b => {
+            const sk = (b.session_key || '').replace(/'/g, "\\'");
+            return `<tr>
+              <td>${b.username || ''}</td>
+              <td>${b.client_ip || ''}</td>
+              <td><button class="btn btn-ghost btn-danger" onclick="unblockSession('${sk}', this)">${t('unblock')}</button></td>
+            </tr>`;
+          }).join('');
+        }
+      }).catch(() => { tbody.innerHTML = ''; });
+    }
+
+    function unblockSession(sessionKey, btn) {
+      if (!window.confirm(t('unblock') + ' ' + sessionKey + '?')) return;
+      btn.disabled = true;
+      btn.textContent = t('unblocking');
+      fetch('/api/blocked/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ session_key: sessionKey })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showToast(t('unblockSuccess'));
+          loadBlockedConnections();
+        } else {
+          showToast(t('unblockFail') + ': ' + (data.message || ''));
+          btn.disabled = false;
+          btn.textContent = t('unblock');
+        }
+      }).catch(() => {
+        showToast(t('unblockFail'));
+        btn.disabled = false;
+        btn.textContent = t('unblock');
+      });
+    }
+
+    function loadDetectEvents() {
+      const blockedTbody = document.getElementById('detectLogBody');
+      const blockedEmpty = document.getElementById('detectLogEmpty');
+      const restoredTbody = document.getElementById('restoredLogBody');
+      const restoredEmpty = document.getElementById('restoredLogEmpty');
+      fetch('/api/events').then(r => r.json()).then(data => {
+        const events = data.events || [];
+        const restored = events.filter(ev => ev.status === 'resolved' || ev.status === 'restored');
+
+        /* Show all events in the blocked table; restored events have restore button disabled */
+        if (events.length === 0) {
+          blockedTbody.innerHTML = '';
+          blockedEmpty.style.display = 'block';
+        } else {
+          blockedEmpty.style.display = 'none';
+          blockedTbody.innerHTML = events.map(ev => {
+            const isRestored = (ev.status === 'resolved' || ev.status === 'restored');
+            const restoreBtn = isRestored
+              ? `<button class="btn btn-restored" disabled>${t('restored')}</button>`
+              : `<button class="btn btn-ghost" onclick="restoreEvent('${ev.event_id}', this)">${t('restore')}</button>`;
+            const detailBtn = `<button class="btn btn-ghost" onclick="showEventFiles('${ev.event_id}')">${t('detailFiles')}</button>`;
+            return `<tr>
+              <td>${ev.event_id || ''}</td>
+              <td>${ev.username || ''}</td>
+              <td>${ev.client_ip || ''}</td>
+              <td>${fmtTime(ev.started_at)}</td>
+              <td>${ev.peak_risk_score || 0}</td>
+              <td>${ev.files_protected || 0}</td>
+              <td>${ev.files_created || 0}</td>
+              <td>${restoreBtn} ${detailBtn}</td>
+            </tr>`;
+          }).join('');
+        }
+
+        if (restored.length === 0) {
+          restoredTbody.innerHTML = '';
+          restoredEmpty.style.display = 'block';
+        } else {
+          restoredEmpty.style.display = 'none';
+          restoredTbody.innerHTML = restored.map(ev => {
+            const detailBtn = `<button class="btn btn-ghost" onclick="showRestoredFiles('${ev.event_id}')">${t('detailFiles')}</button>`;
+            return `<tr>
+				<td>${ev.event_id || ''}</td>
+              <td>${ev.username || ''}</td>
+              <td>${ev.client_ip || ''}</td>
+              <td>${fmtTime(ev.started_at)}</td>
+              <td>${fmtTime(ev.ended_at)}</td>
+              <td>${ev.files_protected || 0}</td>
+              <td>${ev.files_deleted || 0}</td>
+              <td>${detailBtn}</td>
+            </tr>`;
+          }).join('');
+        }
+      }).catch(() => { blockedTbody.innerHTML = ''; restoredTbody.innerHTML = ''; });
+    }
+
+    function fmtTime(iso) {
+      if (!iso) return '';
+      return iso.replace('T', ' ').replace('Z', '');
+    }
+
+    function showEventFiles(eventId) {
+      fetch('/api/events/files?event_id=' + encodeURIComponent(eventId))
+        .then(r => r.json()).then(data => {
+          const tbody = document.getElementById('fileDetailBody');
+          const thead = document.getElementById('fileDetailHead');
+          // Restore detection-specific headers
+          thead.innerHTML = `<tr>
+            <th>${t('colPath')}</th>
+            <th>${t('colDetectTime')}</th>
+            <th>${t('colOpType')}</th>
+            <th>${t('colSize')}</th>
+            <th>${t('colRestoreStatus')}</th>
+          </tr>`;
+          const pf = data.protected_files || [];
+          const cf = data.created_files || [];
+          let rows = pf.map(f => {
+            const opName = opTypeStr(f.op_type);
+            const rStatus = f.restore_status === 'restored' ? t('restoreSuccess')
+              : f.restore_status === 'failed' ? t('restoreFail')
+              : f.restore_status || 'pending';
+            return `<tr>
+              <td>${f.original_path || ''}</td>
+              <td>${fmtTime(f.protected_at)}</td>
+              <td>${opName}</td>
+              <td>${fmtSize(f.file_size)}</td>
+              <td>${rStatus}</td>
+            </tr>`;
+          });
+          rows = rows.concat(cf.map(f => `<tr>
+            <td>${f.file_path || ''}</td>
+            <td>${fmtTime(f.created_at)}</td>
+            <td>${t('opCreate')}</td>
+            <td>-</td>
+            <td>-</td>
+          </tr>`));
+          tbody.innerHTML = rows.join('') || '<tr><td colspan="5">-</td></tr>';
+          document.getElementById('fileDetailTitle').textContent =
+            t('fileDetail') + ' (' + eventId + ')';
+			hideQfRestoreBtns();
+          document.getElementById('fileDetailOverlay').classList.remove('is-hidden');
+          // 重置表格内容区滚动条位置（横向和纵向）
+          setTimeout(() => {
+            const modalBox = document.querySelector('#fileDetailOverlay .modal-box');
+            const tableWrap = modalBox && modalBox.querySelector('.table-wrap');
+            if (tableWrap) {
+              tableWrap.scrollTop = 0;
+              tableWrap.scrollLeft = 0;
+            }
+          }, 0);
+        }).catch(() => {});
+    }
+
+    function showRestoredFiles(eventId) {
+      fetch('/api/events/files?event_id=' + encodeURIComponent(eventId))
+        .then(r => r.json()).then(data => {
+          const tbody = document.getElementById('fileDetailBody');
+          const thead = document.getElementById('fileDetailHead');
+          // Restore detection-specific headers
+          thead.innerHTML = `<tr>
+            <th>${t('colPath')}</th>
+            <th>${t('colDetectTime')}</th>
+            <th>${t('colRestoreType')}</th>
+            <th>${t('colSize')}</th>
+            <th>${t('colRestoreStatus')}</th>
+          </tr>`;
+          const pf = data.protected_files || [];
+          const cf = data.created_files || [];
+          let rows = pf.map(f => {
+            const opName = t('opRestore');
+            const rStatus = f.restore_status === 'restored' ? t('restoreSuccess')
+              : f.restore_status === 'failed' ? t('restoreFail')
+              : f.restore_status || 'pending';
+            return `<tr>
+              <td>${f.original_path || ''}</td>
+              <td>${fmtTime(f.protected_at)}</td>
+              <td>${opName}</td>
+              <td>${fmtSize(f.file_size)}</td>
+              <td>${rStatus}</td>
+            </tr>`;
+          });
+          rows = rows.concat(cf.map(f => `<tr>
+            <td>${f.file_path || ''}</td>
+            <td>${fmtTime(f.created_at)}</td>
+            <td>${t('opDelete')}</td>
+            <td>-</td>
+            <td>-</td>
+          </tr>`));
+          tbody.innerHTML = rows.join('') || '<tr><td colspan="5">-</td></tr>';
+          document.getElementById('fileDetailTitle').textContent =
+            t('fileDetail') + ' (' + eventId + ')';
+			hideQfRestoreBtns();
+          document.getElementById('fileDetailOverlay').classList.remove('is-hidden');
+          // 重置表格内容区滚动条位置（横向和纵向）
+          setTimeout(() => {
+            const modalBox = document.querySelector('#fileDetailOverlay .modal-box');
+            const tableWrap = modalBox && modalBox.querySelector('.table-wrap');
+            if (tableWrap) {
+              tableWrap.scrollTop = 0;
+              tableWrap.scrollLeft = 0;
+            }
+          }, 0);
+        }).catch(() => {});
+    }
+
+    function opTypeStr(op) {
+      switch(op) {
+        case 1: return t('opOpen');
+        case 2: return t('opWrite');
+        case 3: return t('opTruncate');
+        case 4: return t('opRename');
+        case 5: return t('opDelete');
+        case 6: return t('opClose');
+        default: return t('opUnknown');
+      }
+    }
+
+    function restoreEvent(eventId, btn) {
+      if (!window.confirm(t('restore') + ' ' + eventId + '?')) return;
+      btn.disabled = true;
+      btn.textContent = t('restoring');
+      fetch('/api/restore', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ event_id: eventId })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showToast(t('restoreSuccess'));
+          loadDetectEvents();
+        } else {
+          showToast(t('restoreFail') + ': ' + (data.stderr || data.message || ''));
+          btn.disabled = false;
+          btn.textContent = t('restore');
+        }
+      }).catch(() => {
+        showToast(t('restoreFail'));
+        btn.disabled = false;
+        btn.textContent = t('restore');
+      });
+    }
+
+    function loadQuarantineLog() {
+      const tbody = document.getElementById('quarantineLogBody');
+      const empty = document.getElementById('quarantineLogEmpty');
+      fetch('/api/quarantine').then(r => r.json()).then(data => {
+        const items = data.quarantine || [];
+        if (items.length === 0) {
+          tbody.innerHTML = '';
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        tbody.innerHTML = items.map(q => {
+          return `<tr>
+            <td>${q.username || ''}</td>
+            <td>${q.client_ip || ''}</td>
+            <td>${fmtTime(q.started_at)}</td>
+            <td>${fmtTime(q.quarantine_time)}</td>
+            <td><span class="file-count-link" onclick="showQuarantineFiles(${JSON.stringify(q.files).replace(/"/g,'&quot;')}, '${q.event_id}')">${q.file_count || 0}</span></td>
+            <td>
+              <button class="btn btn-ghost" onclick="restoreQuarantineEvent('${q.event_id}', this)">${t('restoreFromQuarantine')}</button>
+              <button class="btn btn-ghost btn-danger" onclick="deleteQuarantineEvent('${q.event_id}', this)">${t('deleteQuarantineEvent')}</button>
+            </td>
+          </tr>`;
+        }).join('');
+      }).catch(() => { tbody.innerHTML = ''; });
+    }
+
+      function showQuarantineFiles(files, eventId) {
+        const tbody = document.getElementById('fileDetailBody');
+        const thead = document.getElementById('fileDetailHead');
+        document.getElementById('fileDetailTitle').textContent =
+          t('fileDetail') + ' (' + eventId + ')';
+        // Use quarantine-specific columns with checkbox
+        thead.innerHTML = `<tr>
+          <th><input type="checkbox" id="qfSelectAll" onchange="toggleQfSelectAll(this)" /></th>
+          <th>${t('colPath')}</th>
+          <th>${t('colDetectTime')}</th>
+          <th>${t('colQuarantineTime')}</th>
+          <th>${t('colSize')}</th>
+        </tr>`;
+        if (!files || files.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">-</td></tr>';
+        } else {
+          tbody.innerHTML = files.map((f, i) => `<tr>
+            <td><input type="checkbox" class="qf-check" data-path="${(f.path || '').replace(/"/g,'&quot;')}" /></td>
+            <td>${f.path || ''}</td>
+            <td>${fmtTime(f.started_at)}</td>
+            <td>${fmtTime(f.quarantine_time || f.mtime)}</td>
+            <td>${fmtSize(f.size)}</td>
+          </tr>`).join('');
+        }
+        // Add restore/delete buttons at TOP
+        const modalBox = document.querySelector('#fileDetailOverlay .modal-box');
+        let btnRow = document.getElementById('qfRestoreBtns');
+        if (!btnRow) {
+          btnRow = document.createElement('div');
+          btnRow.id = 'qfRestoreBtns';
+          btnRow.style.cssText = 'padding:0.5rem 1rem;display:block;position:sticky;top:0;background:#fff;z-index:10;border-bottom:1px solid #eee;margin-bottom:0.5rem;text-align:right;';
+          modalBox.insertBefore(btnRow, modalBox.firstChild.nextSibling);
+        }
+        btnRow.innerHTML = `
+          <button class="btn btn-primary" onclick="restoreQuarantineSelected('${eventId}')">${t('restoreSelected')}</button>
+          <button class="btn btn-danger" onclick="deleteQuarantineSelected('${eventId}')">${t('deleteSelected')}</button>
+        `;
+        btnRow.dataset.eventId = eventId;
+        btnRow.style.display = '';
+        document.getElementById('fileDetailOverlay').classList.remove('is-hidden');
+
+        // 重置表格内容区滚动条位置（横向和纵向）
+        setTimeout(() => {
+          const tableWrap = modalBox.querySelector('.table-wrap');
+          if (tableWrap) {
+            tableWrap.scrollTop = 0;
+            tableWrap.scrollLeft = 0;
+          }
+        }, 0);
+      }
+
+    function deleteQuarantineSelected(eventId) {
+      const checked = document.querySelectorAll('.qf-check:checked');
+      if (checked.length === 0) return;
+      if (!window.confirm(t('delete') + ' ' + t('selectAll') + '?')) return;
+      const paths = Array.from(checked).map(cb => cb.dataset.path);
+      fetch('/api/quarantine/delete_files', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ event_id: eventId, files: paths })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showToast(t('delete') + ` (${data.deleted}/${data.total})`);
+          closeFileDetail();
+          loadQuarantineLog();
+          loadStorageUsage();
+        } else {
+          showToast(t('delete') + ' ' + t('fail'));
+        }
+      }).catch(() => showToast(t('delete') + ' ' + t('fail')));
+    }
+
+    function toggleQfSelectAll(el) {
+      document.querySelectorAll('.qf-check').forEach(cb => cb.checked = el.checked);
+    }
+
+    function restoreQuarantineEvent(eventId, btn) {
+      if (!window.confirm(t('confirmRestoreQuarantine'))) return;
+      btn.disabled = true;
+      btn.textContent = t('restoring');
+      fetch('/api/quarantine/restore', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ event_id: eventId })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showToast(t('restoreQuarantineSuccess') + ` (${data.restored}/${data.total})`);
+          loadQuarantineLog();
+          loadStorageUsage();
+        } else {
+          showToast(t('restoreQuarantineFail') + ': ' + (data.message || ''));
+          btn.disabled = false;
+          btn.textContent = t('restoreFromQuarantine');
+        }
+      }).catch(() => {
+        showToast(t('restoreQuarantineFail'));
+        btn.disabled = false;
+        btn.textContent = t('restoreFromQuarantine');
+      });
+    }
+
+    function restoreQuarantineSelected(eventId) {
+      const checked = document.querySelectorAll('.qf-check:checked');
+      if (checked.length === 0) return;
+      if (!window.confirm(t('confirmRestoreQuarantine'))) return;
+      const paths = Array.from(checked).map(cb => cb.dataset.path);
+      fetch('/api/quarantine/restore', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ event_id: eventId, files: paths })
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showToast(t('restoreQuarantineSuccess') + ` (${data.restored}/${data.total})`);
+          closeFileDetail();
+          loadQuarantineLog();
+          loadStorageUsage();
+        } else {
+          showToast(t('restoreQuarantineFail') + ': ' + (data.message || ''));
+        }
+      }).catch(() => showToast(t('restoreQuarantineFail')));
+    }
+
+    function closeFileDetail(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('fileDetailOverlay').classList.add('is-hidden');
+    }
+
+    function fmtSize(bytes) {
+      if (bytes == null || bytes === '' || bytes < 0) return '-';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+      return (bytes / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function deleteQuarantineEvent(eventId, btn) {
+      if (!window.confirm(t('delete') + ' ' + eventId + '?')) return;
+      btn.disabled = true;
+      fetch('/api/quarantine/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ event_id: eventId })
+      }).then(r => r.json()).then(() => {
+        loadQuarantineLog();
+        loadStorageUsage();
+      }).catch(() => { btn.disabled = false; });
+    }
+
+    function loadStorageUsage() {
+      fetch('/api/storage').then(r => r.json()).then(data => {
+        const qUsedGB = (data.quarantine.used_bytes / (1024*1024*1024)).toFixed(2);
+        const bUsedGB = (data.backup.used_bytes / (1024*1024*1024)).toFixed(2);
+        const qSize = Number(quarantineSize.value) || 2;
+        const bSize = Number(backupSize.value) || 2;
+        const qPct = Math.min(100, Math.round((qUsedGB / qSize) * 100));
+        const bPct = Math.min(100, Math.round((bUsedGB / bSize) * 100));
+
+        usageText.textContent = qPct + '%';
+        usageBar.style.width = qPct + '%';
+        usageDetail.textContent = t('usageDetail').replace('{used}', qUsedGB).replace('{size}', String(qSize));
+
+        backupUsageText.textContent = bPct + '%';
+        backupUsageBar.style.width = bPct + '%';
+        backupUsageDetail.textContent = t('backupUsageDetail').replace('{used}', bUsedGB).replace('{size}', String(bSize));
+      }).catch(() => {});
+    }
+
+    /* ---- Clear actions ---- */
+
+    document.getElementById('clearQuarantine').addEventListener('click', () => {
+      if (!window.confirm(t('confirmClear1'))) return;
+      if (!window.confirm(t('confirmClear2'))) return;
+      fetch('/api/quarantine/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+      }).then(r => r.json()).then(() => {
+        showToast(t('toastCleared'));
+        loadStorageUsage();
+        loadQuarantineLog();
+      }).catch(() => {});
+    });
+
+    document.getElementById('clearBackupZone').addEventListener('click', () => {
+      if (!window.confirm(t('confirmClearBackup1'))) return;
+      if (!window.confirm(t('confirmClearBackup2'))) return;
+      fetch('/api/backup/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+      }).then(r => r.json()).then(() => {
+        showToast(t('toastBackupCleared'));
+        loadStorageUsage();
+      }).catch(() => {});
+    });
+
+    /* ---- Black/White list management (unified) ---- */
+
+    function renderList(items, listEl, emptyEl, removeFn) {
+      if (items.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+      } else {
+        emptyEl.style.display = 'none';
+        listEl.innerHTML = items.map(v =>
+          `<li class="list-item"><span>${v}</span><button class="btn btn-ghost btn-danger" onclick="${removeFn}('${v}')">${t('delete')}</button></li>`
+        ).join('');
+      }
+    }
+
+    function loadBlackWhiteList() {
+      fetch('/api/whitelist').then(r => r.json()).then(data => {
+        const wl = data.whitelist || {};
+        const bl = data.blacklist || {};
+        renderList(wl.users || [], document.getElementById('wlUserList'), document.getElementById('wlUserEmpty'), 'removeWlUser');
+        renderList(bl.users || [], document.getElementById('blUserList'), document.getElementById('blUserEmpty'), 'removeBlUser');
+        renderList(wl.ips || [], document.getElementById('smbWhiteList'), document.getElementById('smbWhiteEmpty'), 'removeWlIp');
+        renderList(bl.ips || [], document.getElementById('smbBlackList'), document.getElementById('smbBlackEmpty'), 'removeBlIp');
+      }).catch(() => {});
+    }
+
+    function removeWlUser(user) {
+      fetch('/api/whitelist/users/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ user: user })
+      }).then(r => r.json()).then(() => loadBlackWhiteList()).catch(() => {});
+    }
+
+    function removeBlUser(user) {
+      fetch('/api/blacklist/users/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ user: user })
+      }).then(r => r.json()).then(() => loadBlackWhiteList()).catch(() => {});
+    }
+
+    function removeWlIp(ip) {
+      fetch('/api/whitelist/ips/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ip: ip })
+      }).then(r => r.json()).then(() => loadBlackWhiteList()).catch(() => {});
+    }
+
+    function removeBlIp(ip) {
+      fetch('/api/blacklist/ips/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ip: ip })
+      }).then(r => r.json()).then(() => loadBlackWhiteList()).catch(() => {});
+    }
+
+
+    // 用户选择弹窗
+
+    function showUserSelectDialog(type) {
+      // type: 'whitelist' or 'blacklist'
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-box" style="max-width:420px;">
+          <div class="modal-head">
+            <h3>${t('smbUsers')}</h3>
+            <button class="btn btn-ghost" id="closeUserSelect">&times;</button>
+          </div><hr>		  
+          <form id="userSelectForm" style="margin:0;padding:0;">
+			<div>
+            <div id="userSelectContent">${t('search')}...</div><hr>	
+            <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:18px;">
+              <button type="submit" class="btn btn-primary" id="userSelectOk">${t('opConfirm') || 'OK'}</button>
+              <button type="button" class="btn" id="userSelectCancel">${t('opCancel') || 'Cancel'}</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      document.getElementById('closeUserSelect').onclick = () => document.body.removeChild(modal);
+      document.getElementById('userSelectCancel').onclick = () => document.body.removeChild(modal);
+      const userUrl = '/api/users?type=' + type;
+      fetch(userUrl).then(r => r.json()).then(data => {
+        const users = data.users || [];
+        const content = document.getElementById('userSelectContent');
+        if (users.length === 0) {
+          content.innerHTML = `<p style="color:#bc3f4d">${t('noUsersAvailable')}</p>`;
+          return;
+        }
+        content.innerHTML = '<ul style="max-height:320px;overflow:auto;padding:0;list-style:none;">' +
+          users.map(u => `
+            <li class="user-select-item" data-user="${u}" style='margin:6px 0;display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:6px;padding:6px 8px;'>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u}</span>
+            </li>`).join('') + '</ul>';
+        // 选中/取消选中逻辑
+        content.querySelectorAll('.user-select-item').forEach(li => {
+          li.onclick = function() {
+            this.classList.toggle('selected');
+            if (this.classList.contains('selected')) {
+              this.style.background = '#e0e7ff';
+              this.style.border = '1.5px solid #4651cf';
+            } else {
+              this.style.background = '';
+              this.style.border = '';
+            }
+          };
+        });
+      });
+      document.getElementById('userSelectForm').onsubmit = function(e) {
+        e.preventDefault();
+        const selected = Array.from(document.querySelectorAll('.user-select-item.selected')).map(li => li.dataset.user);
+        if (selected.length === 0) return;
+        const url = type === 'whitelist' ? '/api/whitelist/users/add' : '/api/blacklist/users/add';
+        Promise.all(selected.map(user => fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ user })
+        }))).then(() => {
+          loadBlackWhiteList();
+          document.body.removeChild(modal);
+        });
+      };
+    }
+
+    document.getElementById('addWlUser').addEventListener('click', () => {
+      showUserSelectDialog('whitelist');
+    });
+
+    document.getElementById('addBlUser').addEventListener('click', () => {
+      showUserSelectDialog('blacklist');
+    });
+
+    /* ---- Page activation hook ---- */
+
+    const origActivatePage = activatePage;
+    activatePage = function(pageName) {
+      origActivatePage(pageName);
+      if (pageName === 'event-detect') { loadBlockedConnections(); loadDetectEvents(); }
+      else if (pageName === 'event-quarantine') loadQuarantineLog();
+	  else if (pageName === 'basic') loadConfig();
+      else if (pageName === 'quarantine' || pageName === 'backup-zone') loadStorageUsage();
+      else if (pageName === 'smb') loadBlackWhiteList();
+    };
+
+    /* ---- Initial load ---- */
+    loadConfig();
+    loadStorageUsage();
+
+    // ---- 保护文件类型交互逻辑 ----
+    document.querySelectorAll('input[name="fileTypeMode"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        const textarea = document.getElementById('fileTypeList');
+        const isSpecified = document.querySelector('input[name="fileTypeMode"][value="specified"]').checked;
+        textarea.disabled = !isSpecified;
+        textarea.style.opacity = isSpecified ? '1' : '0.5';
+        textarea.style.cursor = isSpecified ? 'auto' : 'not-allowed';
+      });
+    });
+
+    applyLanguage(currentLang);
+  </script>
+</body>
+</html>
+

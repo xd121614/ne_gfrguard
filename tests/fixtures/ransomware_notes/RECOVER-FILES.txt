@@ -1,0 +1,17 @@
+RECOVER-FILES.txt
+
+Your files are encrypted using a combination of RSA-4096 and AES-256 encryption.
+The private key is stored on our secure server.
+
+Additionally, we have downloaded all your data before encryption.
+If you do not pay, we will publish this data on our news site.
+
+To prove we can decrypt your data, send us 2-3 files for free decryption.
+
+Contact us via email: [attacker-email]
+Your personal ID: [UNIQUE]
+
+Do not modify, rename, or delete encrypted files.
+Do not use any third-party decryption software.
+
+Source: BleepingComputer ransomware coverage

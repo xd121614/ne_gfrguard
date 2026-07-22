@@ -1,0 +1,25 @@
+Royal Ransomware
+
+Your network has been breached and all your files have been encrypted.
+
+We have also exfiltrated your sensitive data including:
+- Financial documents
+- Customer databases
+- Employee records
+- Internal communications
+
+You must pay the ransom to:
+1. Receive the decryption tool to restore your files
+2. Ensure deletion of your exfiltrated data
+
+To contact us and begin negotiations:
+1. Install Tor Browser
+2. Visit our Tor website (address provided separately)
+3. Enter your unique ID to access the negotiation portal
+
+Your unique ID: [UNIQUE]
+
+Do not use any third-party decryption tools. Do not modify encrypted files.
+Contact us as soon as possible — the longer you wait, the higher the cost.
+
+Source: CISA AA23-061A / BleepingComputer

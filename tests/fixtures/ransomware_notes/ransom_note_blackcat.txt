@@ -1,0 +1,23 @@
+ALPHV BlackCat Ransomware
+
+Your files have been encrypted. All your important data is now inaccessible.
+
+We have also downloaded your sensitive corporate data including customer databases, financial records, and internal documents. If you fail to pay, this data will be published on our leak site.
+
+We use robust AES-256 and RSA-2048 encryption algorithms. There is no way to decrypt your files without our private key.
+
+To decrypt your files:
+1. Download and install Tor Browser from https://torproject.org
+2. Visit our Tor site using the onion address provided below
+3. Enter your personal ID to begin negotiations
+
+Personal ID: [UNIQUE]
+
+You have 7 days to contact us. After that, the ransom amount will increase and your data will be published.
+
+DO NOT:
+- Modify or rename encrypted files
+- Use third party decryption tools
+- Contact law enforcement
+
+Source: CISA AA23-353A / SentinelOne

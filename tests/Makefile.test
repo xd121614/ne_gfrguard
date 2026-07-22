@@ -1,0 +1,71 @@
+# L2 unit test Makefile — artifacts in tests/build/
+CC   ?= gcc
+CFLAGS  ?= -O2 -g
+BUILD   := build
+
+CFLAGS_L2 := -std=c17 -D_GNU_SOURCE -Wall -Wextra -Wno-unused-parameter \
+             -I../src/common -I../src/daemon -I. -I.. $(CFLAGS)
+LIBS := -lsqlite3 -lyara -lm -lpthread
+
+CS := ../src/common/rguard_errors.c ../src/common/rguard_log.c \
+      ../src/common/rguard_config.c ../src/common/rguard_db.c ../src/common/cJSON.c
+DS := ../src/daemon/gfrguardd_session.c ../src/daemon/gfrguardd_scorer.c \
+      ../src/daemon/gfrguardd_entropy.c ../src/daemon/gfrguardd_blocker.c
+
+TESTS := test_protocol test_entropy test_session test_scorer test_config test_db test_blacklist test_fangate test_backup test_blocker test_space test_log test_channels test_hash test_yara test_restore test_recover test_main_daemon
+
+.PHONY: test clean
+
+test: $(addprefix $(BUILD)/,$(TESTS))
+	@pass=0; fail=0; \
+	for t in $(TESTS); do echo "--- $$t ---"; if $(BUILD)/$$t; then pass=$$((pass+1)); \
+	else fail=$$((fail+1)); fi; done; \
+	echo; echo "==> $$pass passed, $$fail failed"; test $$fail -eq 0
+
+$(BUILD):
+	@mkdir -p $(BUILD)
+
+$(BUILD)/test_protocol: test_protocol.c test_main.h $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(CS) $(LIBS)
+$(BUILD)/test_entropy:  test_entropy.c  test_main.h $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(DS) $(CS) $(LIBS)
+$(BUILD)/test_session:  test_session.c  test_main.h $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(DS) $(CS) $(LIBS)
+$(BUILD)/test_scorer:   test_scorer.c   test_main.h $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(DS) $(CS) $(LIBS)
+$(BUILD)/test_config:   test_config.c   test_main.h $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(CS) $(LIBS)
+$(BUILD)/test_db:       test_db.c       test_main.h $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(CS) $(LIBS)
+$(BUILD)/test_blacklist: test_blacklist.c test_main.h $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(DS) $(CS) $(LIBS)
+$(BUILD)/test_fangate:  test_fangate.c  test_main.h ../src/daemon/gfrguardd_fangate.c | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< ../src/daemon/gfrguardd_fangate.c -lpthread
+$(BUILD)/test_backup:   test_backup.c   test_main.h ../src/common/rguard_backup.h | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $<
+$(BUILD)/test_blocker:  test_blocker.c  test_main.h $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(DS) $(CS) $(LIBS)
+$(BUILD)/test_space:    test_space.c    test_main.h ../src/daemon/gfrguardd_space.c $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< ../src/daemon/gfrguardd_space.c $(CS) $(LIBS)
+$(BUILD)/test_log:      test_log.c      test_main.h $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(CS) $(LIBS)
+$(BUILD)/test_hash:     test_hash.c     test_main.h ../src/common/rguard_hash.h | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $<
+$(BUILD)/test_yara:     test_yara.c     test_main.h ../src/daemon/gfrguardd_yara.c $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< ../src/daemon/gfrguardd_yara.c $(CS) $(LIBS)
+$(BUILD)/test_restore:  test_restore.c  test_main.h ../src/daemon/gfrguardd_restore.c $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -DRECOVER_BIN='"/bin/true"' -o $@ $< ../src/daemon/gfrguardd_restore.c $(CS) $(LIBS)
+$(BUILD)/test_recover:  test_recover.c  test_main.h ../src/recover/gfrguard_recover.c ../src/daemon/gfrguardd_blocker.c $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< ../src/daemon/gfrguardd_blocker.c $(CS) $(LIBS)
+MAINC := ../src/daemon/gfrguardd_main.c
+DS2 := $(DS) ../src/daemon/gfrguardd_yara.c ../src/daemon/gfrguardd_restore.c ../src/daemon/gfrguardd_space.c
+$(BUILD)/daemon_main.o: $(MAINC) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -Dmain=daemon_main -DRUN_DIR='"/tmp/tmain_run"' -c $(MAINC) -o $@
+$(BUILD)/test_main_daemon: test_main_daemon.c test_main.h $(BUILD)/daemon_main.o $(DS2) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -o $@ $< $(BUILD)/daemon_main.o $(DS2) $(CS) $(LIBS)
+CH := ../src/daemon/gfrguardd_ftp.c ../src/daemon/gfrguardd_local.c ../src/daemon/gfrguardd_fanchannel.c ../src/daemon/gfrguardd_cloud.c
+$(BUILD)/test_channels: test_channels.c test_main.h $(CH) $(DS) $(CS) | $(BUILD)
+	$(CC) $(CFLAGS_L2) -DNEO_CRONER_TIMEOUT_MS=400 -o $@ $< $(CH) $(DS) $(CS) $(LIBS)
+
+clean:
+	rm -rf $(BUILD)

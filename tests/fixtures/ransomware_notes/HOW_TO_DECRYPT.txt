@@ -1,0 +1,17 @@
+HOW TO DECRYPT YOUR FILES.txt
+
+All your files have been encrypted with RSA-2048 encryption algorithm.
+The only way to decrypt your files is to purchase the decryption key from us.
+
+Attention!
+Do not try to decrypt your files using third party software. This may lead to permanent data loss.
+Do not rename encrypted files. You will not be able to decrypt them after renaming.
+Do not contact law enforcement or FBI. They will not help you.
+
+You have 72 hours to pay the ransom. After 72 hours, the price will double.
+After 7 days, your private decryption key will be deleted permanently.
+
+Your personal ID: [UNIQUE]
+Contact us: [email]
+
+Source: BleepingComputer general ransomware coverage

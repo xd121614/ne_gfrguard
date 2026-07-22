@@ -1,0 +1,22 @@
+{
+  "window_short": 10,
+  "window_long": 30,
+  "weights": {
+    "modified": 3,
+    "rename": 4,
+    "delete": 3,
+    "dirs": 5,
+    "ext_change": 5,
+    "ransom_ext": 20,
+    "high_entropy": 8,
+    "yara_match": 40
+  },
+  "thresholds": {
+    "warn": 30,
+    "high": 60,
+    "critical": 80
+  },
+  "entropy_threshold": 7.0,
+  "entropy_enabled": true,
+  "yara_enabled": true
+}
