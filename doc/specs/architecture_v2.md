@@ -10,45 +10,44 @@
 
 ### 1.1 目的
 
-本文从用例、逻辑、运行、部署、实现、数据和安全视图描述 GF2000 APPCHECK（下称 GFRGuard）的当前软件架构，回答以下问题：
+本文描述 GF2000 APPCHECK（下称 GFRGuard）的软件架构，回答以下问题：
 
 1. 四类文件访问事件如何被拦截、归一化并送入统一策略管线；
 2. 修改前前像、会话评分、阻断和恢复如何协作；
 3. 各通道的故障边界、权限边界和数据所有权是什么；
-4. 哪些结论有代码或测试证据，哪些仍属于规划。
+4. 系统的规模与性能约束、复用资产、质量属性。
 
 ### 1.2 范围
 
 本文覆盖当前仓库中可构建或可部署的组件：
 
-- `vfs_gfrguard.so`：Samba VFS 拦截模块；
-- `gfrguardd`：策略守护进程及 FTP、云同步、本地 fanotify 通道；
-- `gfrguard-recover`：事件级恢复和解除阻断工具；
-- `gfrguard-rule-update`规则包下载、签名校验和原子升级器；
-- 公共配置、协议、SQLite、日志、备份复制实现；
-- 默认策略、勒索扩展名和 YARA 规则；
-- 邮件告警队列和 SMTP 发送器；
-- 单元测试和集成测试；
+- `vfs_gfrguard.so`：Samba VFS 拦截模块
+- `gfrguardd`：策略守护进程及 FTP、云同步、本地 fanotify 通道
+- `gfrguard-recover`：事件级恢复和解除阻断工具
+- `gfrguard-rule-update`规则包下载、签名校验和原子升级器
+- 公共配置、协议、SQLite、日志、备份复制实现
+- 默认策略、勒索扩展名和 YARA 规则
+- 邮件告警队列和 SMTP 发送器
 
 ### 1.3 术语
 
 | 术语 | 本文定义 |
 |---|---|
-| 前像（preimage） | 既有文件发生破坏性操作前保存的最早版本；代码中仍普遍使用 backup/risky 命名 |
+| 前像（preimage） | 既有文件发生破坏性操作前保存的最早版本 |
 | 破坏性操作 | 可能覆盖、截断或删除既有内容的操作；不等同于“恶意”或“文件损坏” |
 | 会话 | 评分状态的聚合键，最终由 `username@client_ip` 形式生成；各通道用伪用户/IP编码身份 |
 | CONTENT_SAME | 前像与当前文件等长且 FNV-1a 结果相同；仅用于撤销一次 modified 计数 |
-| 内容信号 | HIGH_ENTROPY 或 YARA_MATCH；当前实现会参与评分，但不形成逐文件损坏状态 |
-| 损坏判定 | 对文件设置 damaged/corrupted/encrypted 等状态的业务判断；当前数据模型未实现 |
+| 内容信号 | HIGH_ENTROPY 或 YARA_MATCH；会话级布尔证据：高熵首次命中置位、权重只加一次，YARA 任一命中直接提升 CRITICAL；不形成逐文件损坏状态，不按命中文件数累计 |
+| 行为维度 | 参与加权求和的行为计数指标：modified / rename / delete / touched_dirs / ext_change；任何单一维度不得单独达到 CRITICAL |
+| 定性证据 | YARA 命中或勒索扩展名命中；与行为维度共同支撑 CRITICAL 判定，并解除单维度封顶 |
 | FID 模式 | `FAN_REPORT_DFID_NAME` fanotify 通知，使用目录 file handle 和文件名重建路径 |
 
 ### 1.4 参考资料
 
 | 文档 | 用途 |
 |---|---|
-| `requirements.md` | 需求来源 |
-| `design.md` | 原详细设计 |
-| `utest.md` | 测试设计 |
+| `requirements.md` | 需求说明 |
+| `design.md` | 设计说明 |
 | Linux `fanotify(7)` | 非 SMB 通道内核接口 |
 | Samba VFS API | SMB 回调 ABI |
 
@@ -120,8 +119,8 @@
 | UC-6 本地进程阻断 | `/proc` 身份解析、PID starttime 防复用、会话阻断后终止进程 | 已实现 |
 | UC-7 自动恢复 | CRITICAL → fork → 延迟 exec `gfrguard-recover restore --event` | 已实现 |
 | UC-8 配置/规则热重载 | SIGHUP 重读 JSON、同步 blocked、重建 marks、reload YARA | 已实现 |
-| UC-9 邮件告警 | 事件进入邮件队列并定时汇总发送 | 规划，当前无代码 |
-| UC-10 签名规则升级 | 校验离线/在线规则包并原子替换 | 规划，当前只有 YARA reload 能力 |
+| UC-9 邮件告警 | 事件进入邮件队列并定时汇总发送 | 规划 |
+| UC-10 签名规则升级 | 校验离线/在线规则包并原子替换 | 规划 |
 
 ## 5. 逻辑视图
 
@@ -196,7 +195,7 @@ flowchart LR
 |---|---|---|
 | L1 拦截层 | VFS 回调、fanotify 双 fd 基础设施、FTP/Cloud/Local 通道 handler | 只做拦截、前像、身份解析和上报，**不做策略判断**；经定长协议进入策略层，不直接读写 SQLite |
 | L2 策略层 | process_msg 管线、session、scorer、entropy、YARA、blocker | 只依赖SQLite/YARA 库；不直接调用 Samba API，不感知内核接口细节 |
-| L3 持久化与工具层 | sqlite db文件，文件恢复工具、规则升级工具 | 只依赖公共持久化格式和运行文件布局，不链接 daemon 内部模块 |
+| L3 持久化与工具层 | sqlite db，文件恢复工具、规则升级工具 | 只依赖公共持久化格式和运行文件布局，不链接 daemon 内部模块 |
 
 ```mermaid
 flowchart TB
@@ -612,8 +611,6 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 
 ### 9.3 性能约束
 
-当前没有量化的性能测试数据，性能约束以设计上限形式存在：
-
 | 路径 | 约束 | 手段 |
 |---|---|---|
 | SMB I/O 同步路径 | 非破坏性操作直通 `NEXT_*`，只允许一次 blocked 文件检查 | mtime 失效缓存，避免每次 stat |
@@ -632,9 +629,8 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 
 | 资产 | 复用方式 |
 |---|---|
-| `rguard_common`（protocol/config/db/log/errors/cJSON） | 静态库，daemon、recover、全部单元测试共同链接 |
+| `rguard_common`（protocol/config/db/log/errors/cJSON） | 静态库，daemon、recover共同链接 |
 | `gfrguardd_blocker.c` | recover 工具直接编译复用，解除阻断逻辑不复制 |
-| daemon 模块源码集 | 单元测试以 stub 同名函数方式直接编译复用，无测试替身框架 |
 | `rguard_event_msg` 定长协议 | VFS 与 daemon 共享同一头文件，结构偏移静态断言锁定 |
 
 ### 10.3 外部资产
@@ -657,5 +653,4 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 | 可恢复性 | 前像 first-copy-wins + `event_id` 关联保护文件与新建文件
 | 可移植性 | 双 Samba ABI 分别构建；Yocto 交叉编译；YARA 可选降级
 | 安全性 | 前像/恢复路径 O_NOFOLLOW + 路径校验防符号链接攻击；PID starttime 防复用；blocked 文件原子重建 |
-| 可测试性 | 17个单元测试直接编译源码 + stub；集成测试覆盖真实 fanotify 环境 |
 | 性能 | 直通路径只加一次缓存检查，慢路径全部移出 I/O 主路 |
