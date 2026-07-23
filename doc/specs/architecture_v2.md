@@ -12,22 +12,21 @@
 
 本文描述 GF2000 APPCHECK（下称 GFRGuard）的软件架构，回答以下问题：
 
-1. 四类文件访问事件如何被拦截、归一化并送入统一策略管线；
-2. 修改前前像、会话评分、阻断和恢复如何协作；
-3. 各通道的故障边界、权限边界和数据所有权是什么；
-4. 系统的规模与性能约束、复用资产、质量属性。
+1. 四类文件访问事件（SAMBA / 云联携 / FTP / 本地）如何被拦截、归一化并送入统一策略管线
+2. 策略管线的处理流程，修改前前像、会话评分、阻断和恢复如何协作
+3. 行为和内容两个维度的评分约束
+4. 其他相关组件在系统中的作用
 
 ### 1.2 范围
 
 本文覆盖当前仓库中可构建或可部署的组件：
 
 - `vfs_gfrguard.so`：Samba VFS 拦截模块
-- `gfrguardd`：策略守护进程及 FTP、云同步、本地 fanotify 通道
+- `gfrguardd`：策略守护进程及 FTP、云联携、本地 fanotify 通道
 - `gfrguard-recover`：事件级恢复和解除阻断工具
 - `gfrguard-rule-update`规则包下载、签名校验和原子升级器
-- 公共配置、协议、SQLite、日志、备份复制实现
-- 默认策略、勒索扩展名和 YARA 规则
-- 邮件告警队列和 SMTP 发送器
+- `gfrguardd-service`同 webUI 交互
+- `其他组件`sqlite db / json / Yara rules / block file
 
 ### 1.3 术语
 
@@ -63,9 +62,6 @@
 | 进程形态 | smbd 内嵌 VFS 模块 + root 守护进程 + 恢复工具 + 升级工具 + Flask webservice |
 | 内核接口 | fanotify API |
 | 外部库 | SQLite3、libyara、pthread、libm |
-| Samba 依赖 | 按 Samba 源码树（waf 产物 `bin/default`）编译|
-| 管理面部署 | webservice 监听 `127.0.0.1:8880` |
-| 进程管理 | systemd 托管 smbd / gfrguardd / webservice |
 
 ### 2.2 技术选型
 
@@ -94,14 +90,10 @@
 
 | 约束 | 架构影响 |
 |---|---|
-| Samba VFS ABI 随版本变化 | VFS 模块按目标 Samba 版本分别构建，回调签名条件编译 |
 | fanotify 依赖内核编译选项 | 需启用 `CONFIG_FANOTIFY` 和 `CONFIG_FANOTIFY_ACCESS_PERMISSIONS`（FAN_OPEN_PERM 应答能力）；Yocto 内核 defconfig 缺项时 `fanotify_init` 失败，FTP/云/本地三通道整体不可用 |
-| FID 模式依赖内核版本和文件系统能力 | `FAN_REPORT_DFID_NAME` 要求内核 ≥ 5.9 且被监控文件系统支持 exportfs 文件句柄（ext4/xfs/btrfs 支持，tmpfs 等不支持）；不满足时 notify 通道路径重建失效 |
-| fanotify 需要 root/CAP_SYS_ADMIN | daemon 以高权限运行；容器/WSL 环境通常不能完成真实集成测试 |
+| FID 模式依赖内核版本和文件系统能力 | 要求内核 ≥ 5.1 且被监控文件系统支持 exportfs 文件句柄（ext4/xfs/btrfs 支持，tmpfs 等不支持）；不满足时 notify 通道路径重建失效 |
 | permission 与 FID notification 能力不同 | 使用两个 fanotify fd；权限线程和通知处理分离 |
-| fanotify permission 必须及时应答 | 权限路径不能执行无界内容扫描；故障应优先放行业务 |
 | fanotify permission 只支持 open / access 文件前触发 | unlink / rename 等场景下无法完成前像备份操作 |
-| Unix DGRAM 无确认 | VFS 上报是尽力而为，daemon 不可用时不能依赖消息完整性 |
 | 单节点 SQLite | 状态仅在本机一致，不支持多节点并发写或共享阻断状态 |
 | 不做损坏判定与计数阻断| 数据模型不保存逐文件 damaged/corrupted/encrypted 状态；内容信号（熵/YARA）仅作会话级证据参与行为评分，阻断依据是会话行为评分越限，**不是损坏文件数量** |
 | 单一行为维度不得单独触发阻断 | 任何单一计数维度（修改/重命名/删除/目录扩散）的加权贡献不得单独达到 CRITICAL；CRITICAL 必须由至少两个独立维度、或维度评分叠加定性证据（YARA/勒索扩展名）共同达到 |
@@ -111,11 +103,11 @@
 
 | 用例 | 当前代码路径 | 状态 |
 |---|---|---|
-| UC-1 SMB 覆盖写保护 | `gf_openat` 判断既有破坏性写 → `do_backup` → NEXT open → DGRAM 上报 | 已实现 |
+| UC-1 前像备份 | VFS（gf_open / gf_truncate / gf_unlink / ...） / Fanotify（open）拦截文件操作事件 → `do_backup` → DGRAM 上报 | 已实现 |
 | UC-2 同内容覆盖降噪 | `gf_close` 前像/当前文件哈希 → CONTENT_SAME → session 撤销 modified → scorer 限分 | 已实现 |
 | UC-3 批量勒索行为阻断 | WRITE/RENAME/DELETE/目录扩散/扩展名/内容信号 → 会话评分 → CRITICAL | 已实现 |
 | UC-4 FTP 文件事件检测 | fanotify 通道识别 vsftpd、归一化事件、权限拒绝及进程阻断 | 已实现 |
-| UC-5 云同步扩散控制 | 识别云任务、使用独立长窗口、删除/禁用任务并记录配置 | 部分实现，依赖平台命令和配置 |
+| UC-5 云联携扩散控制 | 识别云任务、使用独立长窗口、删除/禁用任务并记录配置 | 部分实现，依赖平台命令和配置 |
 | UC-6 本地进程阻断 | `/proc` 身份解析、PID starttime 防复用、会话阻断后终止进程 | 已实现 |
 | UC-7 自动恢复 | CRITICAL → fork → 延迟 exec `gfrguard-recover restore --event` | 已实现 |
 | UC-8 配置/规则热重载 | SIGHUP 重读 JSON、同步 blocked、重建 marks、reload YARA | 已实现 |
@@ -137,7 +129,7 @@ flowchart LR
 	subgraph SYS["GF2000 系统"]
 		SMBD[smbd worker]
 		FTPD[vsftpd child]
-		RCLONE[rclone/云同步进程]
+		RCLONE[rclone/云联携进程]
 		LOCAL[本地程序]
         SHARE[(SAMBA共享目录)]
 		FS[(受监控文件系统)]
@@ -438,15 +430,16 @@ sequenceDiagram
 	D->>R: fork 恢复子进程
 	R->>R: sleep 配置延迟
 	R->>C: exec restore --event ID --auto
-	C->>DB: 查询该 event 的 protected_files / created_files
-	loop 每个受保护文件
-		C->>ST: 当前版本移入 quarantine<br/>前像写回原路径
-		C->>DB: 标记 restored
+	C->>DB: 查询该 event 的 created_files / protected_files
+	loop 动作一·删除（created_files 每行）
+		C->>ST: 新建文件移入 quarantine/<event>/<br/>（隔离区新增条目）
+		Note over C,DB: created_files 记录保留不删，<br/>供已处理事件详情展示（恢复动作=删除）
 	end
-	loop 每个事件窗口新建文件
-		C->>ST: 隔离或安全删除
-		C->>DB: 删除 created_files 记录
+	loop 动作二·还原（protected_files 每行）
+		C->>ST: 前像写回原路径
+		C->>DB: restore_status: pending → restored / failed
 	end
+	C->>DB: events: action_taken=restored,<br/>status=resolved, ended_at
 	D->>D: waitpid 回收并记录结果
 	Note over D,C: 保持 Blocked，仅管理员显式 unblock 后解除
 ```
