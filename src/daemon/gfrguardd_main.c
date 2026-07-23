@@ -225,6 +225,11 @@ void process_msg(const struct rguard_event_msg *msg,
     char skey[SESSION_KEY_LEN];
     rguard_make_session_key(skey, sizeof(skey), msg->username, msg->client_ip);
 
+    /* source_type 0 = legacy VFS module predating the field; the
+     * protection-switch gating below treats it as SMB, so record the
+     * same truth in the DB instead of persisting "unknown". */
+    const int src_type = msg->source_type ? msg->source_type : RGUARD_SOURCE_SMB;
+
     /* ── VFS blocked notification (VFS denied a connection/file-op) ──
      * Pure telemetry — the IP is already in the blocked file (that's why
      * the VFS denied access).  Just log and record the event. */
@@ -246,6 +251,7 @@ void process_msg(const struct rguard_event_msg *msg,
             snprintf(ev.session_key, sizeof(ev.session_key), "%s", skey);
             snprintf(ev.username,    sizeof(ev.username),    "%s", msg->username);
             snprintf(ev.client_ip,   sizeof(ev.client_ip),   "%s", msg->client_ip);
+            ev.source_type = src_type;
             iso8601_now(ev.started_at, sizeof(ev.started_at));
             snprintf(ev.action_taken, sizeof(ev.action_taken), "%s", "blocked");
             snprintf(ev.status,       sizeof(ev.status),       "%s", "blocked_ip");
@@ -375,6 +381,7 @@ void process_msg(const struct rguard_event_msg *msg,
                 snprintf(ev.session_key, sizeof(ev.session_key), "%s", skey);
                 snprintf(ev.username,    sizeof(ev.username),    "%s", msg->username);
                 snprintf(ev.client_ip,   sizeof(ev.client_ip),   "%s", msg->client_ip);
+                ev.source_type = src_type;
                 iso8601_now(ev.started_at, sizeof(ev.started_at));
                 snprintf(ev.action_taken, sizeof(ev.action_taken), "%s", "blocked");
                 snprintf(ev.status,       sizeof(ev.status),       "%s", blk_status);
@@ -410,6 +417,7 @@ void process_msg(const struct rguard_event_msg *msg,
         snprintf(ev.session_key, sizeof(ev.session_key), "%s", skey);
         snprintf(ev.username,    sizeof(ev.username),    "%s", msg->username);
         snprintf(ev.client_ip,   sizeof(ev.client_ip),   "%s", msg->client_ip);
+        ev.source_type = src_type;
         iso8601_now(ev.started_at, sizeof(ev.started_at));
         snprintf(ev.action_taken, sizeof(ev.action_taken), "%s", "none");
         snprintf(ev.status,       sizeof(ev.status),       "%s", "active");

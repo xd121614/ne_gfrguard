@@ -34,6 +34,7 @@ struct rguard_event_record {
     char  username[64];
     char  client_ip[48];
     char  pname[64];           /* process name (smbd/vsftpd/rclone/<comm>) */
+    int   source_type;         /* RGUARD_SOURCE_*; 0 = unknown/legacy */
     char  started_at[40];
     char  ended_at[40];
     long long files_protected;

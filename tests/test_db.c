@@ -98,6 +98,19 @@ TEST(upsert_event){ sqlite3 *db=fresh();
     ASSERT_EQ(qint(db,"SELECT files_protected FROM events WHERE event_id='evt-ups'"),7);
     ASSERT_EQ(qint(db,"SELECT peak_risk_score FROM events WHERE event_id='evt-ups'"),66);
     db_close(db); }
+TEST(event_source_type){ sqlite3 *db=fresh();
+    struct rguard_event_record ev; ev_fill(&ev,"evt-st"); ev.source_type=RGUARD_SOURCE_FTP;
+    ASSERT_EQ(db_insert_event(db,&ev),RGUARD_OK);
+    ASSERT_EQ(qint(db,"SELECT source_type FROM events WHERE event_id='evt-st'"),RGUARD_SOURCE_FTP);
+    /* upsert 传入 0（未知）不得覆盖已知通道 */
+    ev.source_type=0;
+    ASSERT_EQ(db_upsert_event(db,&ev),RGUARD_OK);
+    ASSERT_EQ(qint(db,"SELECT source_type FROM events WHERE event_id='evt-st'"),RGUARD_SOURCE_FTP);
+    /* 传入非 0 的新通道则允许纠正 */
+    ev.source_type=RGUARD_SOURCE_HOST;
+    ASSERT_EQ(db_upsert_event(db,&ev),RGUARD_OK);
+    ASSERT_EQ(qint(db,"SELECT source_type FROM events WHERE event_id='evt-st'"),RGUARD_SOURCE_HOST);
+    db_close(db); }
 TEST(update_restore_status){ sqlite3 *db=fresh();
     struct rguard_protected_file pf; pf_fill(&pf,"evt-rs","/tmp/r.txt"); db_insert_protected_file(db,&pf);
     memset(&g_pf,0,sizeof(g_pf)); int c=0; db_query_by_event(db,"evt-rs",grab,&c);
@@ -183,7 +196,7 @@ TEST(cleanup_negative_days){ sqlite3 *db=fresh();
 int main(void){ RUN_TEST(open_close);RUN_TEST(open_null);RUN_TEST(insert_pf);
     RUN_TEST(insert_event);RUN_TEST(query_by_event);RUN_TEST(count_pending);
     RUN_TEST(pf_field_roundtrip);RUN_TEST(pf_dedup);
-    RUN_TEST(update_event);RUN_TEST(upsert_event);RUN_TEST(update_restore_status);RUN_TEST(query_by_path);
+    RUN_TEST(update_event);RUN_TEST(upsert_event);RUN_TEST(event_source_type);RUN_TEST(update_restore_status);RUN_TEST(query_by_path);
     RUN_TEST(created_files);RUN_TEST(created_files_empty);
     RUN_TEST(cloud_task_roundtrip);RUN_TEST(cloud_task_latest_wins);
     RUN_TEST(cloud_task_not_found);RUN_TEST(cloud_task_restored_not_returned);

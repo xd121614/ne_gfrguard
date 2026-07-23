@@ -37,6 +37,7 @@ static const char *SCHEMA_SQL =
     " username TEXT NOT NULL,"
     " client_ip TEXT NOT NULL,"
     " pname TEXT NOT NULL DEFAULT '',"
+    " source_type INTEGER NOT NULL DEFAULT 0,"
     " started_at TEXT NOT NULL,"
     " ended_at TEXT,"
     " files_protected INTEGER DEFAULT 0,"
@@ -115,6 +116,10 @@ int db_open(const char *db_path, sqlite3 **out_db)
     /* Migration: add pname column for process-name traceability (FTP/Local/Cloud). */
     sqlite3_exec(db, "ALTER TABLE events ADD COLUMN pname TEXT NOT NULL DEFAULT '';",
                  NULL, NULL, NULL);
+    /* Migration: add source_type column (RGUARD_SOURCE_*) so the web UI can
+     * show the detection channel per event.  0 = pre-migration rows. */
+    sqlite3_exec(db, "ALTER TABLE events ADD COLUMN source_type INTEGER NOT NULL DEFAULT 0;",
+                 NULL, NULL, NULL);
     *out_db = db;
     return RGUARD_OK;
 }
@@ -170,8 +175,8 @@ int db_insert_event(sqlite3 *db, const struct rguard_event_record *ev)
     if (!db || !ev) return RGUARD_ERR_DB;
     static const char *SQL =
         "INSERT OR IGNORE INTO events(event_id, session_key, username, client_ip,"
-        " pname, started_at, ended_at, files_protected, files_affected,"
-        " peak_risk_score, action_taken, status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
+        " pname, source_type, started_at, ended_at, files_protected, files_affected,"
+        " peak_risk_score, action_taken, status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);";
     sqlite3_stmt *st = NULL;
     if (sqlite3_prepare_v2(db, SQL, -1, &st, NULL) != SQLITE_OK) return RGUARD_ERR_DB;
     sqlite3_bind_text (st, 1, ev->event_id, -1, SQLITE_TRANSIENT);
@@ -179,16 +184,17 @@ int db_insert_event(sqlite3 *db, const struct rguard_event_record *ev)
     sqlite3_bind_text (st, 3, ev->username, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text (st, 4, ev->client_ip, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text (st, 5, ev->pname[0] ? ev->pname : "", -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text (st, 6, ev->started_at, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int  (st, 6, ev->source_type);
+    sqlite3_bind_text (st, 7, ev->started_at, -1, SQLITE_TRANSIENT);
     if (ev->ended_at[0])
-        sqlite3_bind_text(st, 7, ev->ended_at, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 8, ev->ended_at, -1, SQLITE_TRANSIENT);
     else
-        sqlite3_bind_null(st, 7);
-    sqlite3_bind_int64(st, 8, ev->files_protected);
-    sqlite3_bind_int64(st, 9, ev->files_affected);
-    sqlite3_bind_int  (st, 10, ev->peak_risk_score);
-    sqlite3_bind_text (st, 11, ev->action_taken[0] ? ev->action_taken : "none", -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text (st, 12, ev->status[0] ? ev->status : "active", -1, SQLITE_TRANSIENT);
+        sqlite3_bind_null(st, 8);
+    sqlite3_bind_int64(st, 9, ev->files_protected);
+    sqlite3_bind_int64(st, 10, ev->files_affected);
+    sqlite3_bind_int  (st, 11, ev->peak_risk_score);
+    sqlite3_bind_text (st, 12, ev->action_taken[0] ? ev->action_taken : "none", -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text (st, 13, ev->status[0] ? ev->status : "active", -1, SQLITE_TRANSIENT);
     int rc = sqlite3_step(st);
     sqlite3_finalize(st);
     return rc == SQLITE_DONE ? RGUARD_OK : RGUARD_ERR_DB;
@@ -199,14 +205,16 @@ int db_upsert_event(sqlite3 *db, const struct rguard_event_record *ev)
     if (!db || !ev || !ev->event_id[0]) return RGUARD_ERR_DB;
     static const char *SQL =
         "INSERT INTO events(event_id, session_key, username, client_ip,"
-        " pname, started_at, ended_at, files_protected, files_affected,"
+        " pname, source_type, started_at, ended_at, files_protected, files_affected,"
         " peak_risk_score, action_taken, status)"
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)"
         " ON CONFLICT(event_id) DO UPDATE SET"
         " session_key=COALESCE(excluded.session_key, events.session_key),"
         " username=COALESCE(excluded.username, events.username),"
         " client_ip=COALESCE(excluded.client_ip, events.client_ip),"
         " pname=COALESCE(excluded.pname, events.pname),"
+        /* 0 means "unknown" — never let a later upsert erase a known channel. */
+        " source_type=COALESCE(NULLIF(excluded.source_type,0), events.source_type),"
         " started_at=COALESCE(excluded.started_at, events.started_at),"
         " ended_at=COALESCE(excluded.ended_at, events.ended_at),"
         " files_protected=MAX(events.files_protected, excluded.files_protected),"
@@ -221,18 +229,19 @@ int db_upsert_event(sqlite3 *db, const struct rguard_event_record *ev)
     sqlite3_bind_text (st, 3, ev->username, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text (st, 4, ev->client_ip, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text (st, 5, ev->pname[0] ? ev->pname : "", -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text (st, 6, ev->started_at[0] ? ev->started_at : "", -1, SQLITE_TRANSIENT);
-    if (ev->ended_at[0]) sqlite3_bind_text(st, 7, ev->ended_at, -1, SQLITE_TRANSIENT);
-    else sqlite3_bind_null(st, 7);
-    sqlite3_bind_int64(st, 8, ev->files_protected);
-    sqlite3_bind_int64(st, 9, ev->files_affected);
-    sqlite3_bind_int  (st, 10, ev->peak_risk_score);
-    if (ev->action_taken[0]) sqlite3_bind_text(st, 11, ev->action_taken, -1, SQLITE_TRANSIENT);
-    else sqlite3_bind_text(st, 11, "none", -1, SQLITE_STATIC);
+    sqlite3_bind_int  (st, 6, ev->source_type);
+    sqlite3_bind_text (st, 7, ev->started_at[0] ? ev->started_at : "", -1, SQLITE_TRANSIENT);
+    if (ev->ended_at[0]) sqlite3_bind_text(st, 8, ev->ended_at, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(st, 8);
+    sqlite3_bind_int64(st, 9, ev->files_protected);
+    sqlite3_bind_int64(st, 10, ev->files_affected);
+    sqlite3_bind_int  (st, 11, ev->peak_risk_score);
+    if (ev->action_taken[0]) sqlite3_bind_text(st, 12, ev->action_taken, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_text(st, 12, "none", -1, SQLITE_STATIC);
     /* status is NOT NULL — binding NULL here made every upsert with an
      * empty status fail outright.  Default like db_insert_event. */
-    if (ev->status[0]) sqlite3_bind_text(st, 12, ev->status, -1, SQLITE_TRANSIENT);
-    else sqlite3_bind_text(st, 12, "active", -1, SQLITE_STATIC);
+    if (ev->status[0]) sqlite3_bind_text(st, 13, ev->status, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_text(st, 13, "active", -1, SQLITE_STATIC);
     int rc = sqlite3_step(st);
     sqlite3_finalize(st);
     return rc == SQLITE_DONE ? RGUARD_OK : RGUARD_ERR_DB;
