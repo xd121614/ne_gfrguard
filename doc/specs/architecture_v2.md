@@ -117,64 +117,47 @@
 ## 5. 逻辑视图
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "22px"}}}%%
 flowchart LR
 	subgraph EXT["系统外部"]
 		SMB[SMB 客户端]
 		FTP[FTP 客户端]
 		CLOUD[云端]
-		UPDATESERVER[升级服务器]
 		WEB[WEBUI]
+		UPD[升级服务器]
 	end
 
 	subgraph SYS["GF2000 系统"]
-		SMBD[smbd worker]
-		FTPD[vsftpd child]
-		RCLONE[rclone/云联携进程]
-		LOCAL[本地程序]
-        SHARE[(SAMBA共享目录)]
-		FS[(受监控文件系统)]
-		VFS[vfs_gfrguard.so]
+		MON[rclone / vsftpd / 本地程序]
+		VFS[smbd + vfs_gfrguard.so]
+		FS1[(SMB 共享目录)]
+		FS2[(受监控文件系统)]
 		KERNEL[Linux 内核<br/>fanotify]
 		D[gfrguardd]
-		DB[(SQLite index.db)]
-		BLOCKED["/run/gfrguardd/blocked"]
 		REC[gfrguard-recover]
-		STORE[(backups + quarantine)]
-		CFG[rguard-policy.json]
-		RULES[YARA rules]
+		DB[(SQLite index.db<br/>+ backups/quarantine)]
 		WSS[webservice]
-		RULEUP[规则升级器<br/>签名校验 + 原子替换]
+		RULEUP[规则升级器]
 
-		SMBD --> SHARE
-		SMBD --> VFS
-		VFS --> SHARE
-		FTPD --> FS
-		RCLONE --> FS
-		LOCAL --> FS
+		VFS --> FS1
+		MON --> FS2
+		KERNEL --> FS2
 		VFS -->|AF_UNIX DGRAM| D
-		FS --> KERNEL
-		KERNEL -->|perm / notify 事件| D
-		D -->|FAN_ALLOW / FAN_DENY| KERNEL
+		KERNEL <--> D
+		D --> REC
 		D --> DB
-		D --> BLOCKED
-		D -->|fork + exec| REC
-		REC --> STORE
 		REC --> DB
-		BLOCKED -.-> VFS
-		CFG -.-> D
-		RULES -.-> D
-		WEB --> WSS
-		WSS -.->|策略读写| CFG
+		WSS -.->|策略/规则读写| D
 		WSS -.->|事件/状态查询| DB
-		WSS -.->|触发规则更新| RULEUP
-		RULEUP -.->|原子替换| RULES
+		WSS -.->|触发更新| RULEUP
 		RULEUP -.->|SIGHUP 热重载| D
 	end
 
-	SMB --> SMBD
-	FTP --> FTPD
-	CLOUD --> RCLONE
-	UPDATESERVER <-.-> RULEUP
+	SMB --> VFS
+	FTP --> MON
+	CLOUD --> MON
+	WEB --> WSS
+	UPD <-.-> RULEUP
 ```
 
 ## 6. 实现视图
