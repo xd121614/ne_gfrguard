@@ -75,7 +75,10 @@ ftp_setup() {
     mkdir -p /srv/ftp /usr/share/empty /home/testuser
     chmod 0777 /srv/ftp && chmod 0555 /usr/share/empty
     chown testuser:testuser /home/testuser 2>/dev/null || true
-    echo 'testuser:testpass' | chpasswd
+    # -c SHA512: bypass PAM.  On RHEL9/AlmaLinux, plain chpasswd goes through
+    # pam_pwquality, which silently rejects weak passwords like "testpass"
+    # (exit status swallowed here) and the FTP login then fails with 530.
+    echo 'testuser:testpass' | chpasswd -c SHA512
     if [ ! -f /etc/pam.d/vsftpd ]; then
         cat > /etc/pam.d/vsftpd << 'PAMEOF'
 auth required pam_unix.so
@@ -93,6 +96,7 @@ setproctitle_enable=YES
 check_shell=NO
 seccomp_sandbox=NO
 local_umask=022
+pam_service_name=vsftpd
 VSFTPDEOF
 }
 
@@ -247,14 +251,14 @@ else
         cat >> /etc/samba/smb.conf << 'SMBEOF'
 
 [rguard-test]
-	path = /srv/samba/rguard-test
-	read only = No
-	guest ok = Yes
-	vfs objects = gfrguard
-	gfrguard:protect = yes
-	gfrguard:store = /var/lib/gf2000/rguard-store
-	gfrguard:policy = /etc/gf2000/rguard-policy.json
-	gfrguard:mode = permissive
+    path = /srv/samba/rguard-test
+    read only = No
+    guest ok = Yes
+    vfs objects = gfrguard
+    gfrguard:protect = yes
+    gfrguard:store = /var/lib/gf2000/rguard-store
+    gfrguard:policy = /etc/gf2000/rguard-policy.json
+    gfrguard:mode = permissive
 SMBEOF
     fi
     # Install VFS module for system Samba
