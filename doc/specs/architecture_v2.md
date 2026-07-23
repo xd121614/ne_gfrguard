@@ -139,6 +139,7 @@ flowchart LR
 		FTPD[vsftpd child]
 		RCLONE[rclone/云同步进程]
 		LOCAL[本地程序]
+        SHARE[(SAMBA共享目录)]
 		FS[(受监控文件系统)]
 		VFS[vfs_gfrguard.so]
 		KERNEL[Linux 内核<br/>fanotify]
@@ -152,7 +153,9 @@ flowchart LR
 		WSS[webservice]
 		RULEUP[规则升级器<br/>签名校验 + 原子替换]
 
+		SMBD --> SHARE
 		SMBD --> VFS
+		VFS --> SHARE
 		FTPD --> FS
 		RCLONE --> FS
 		LOCAL --> FS
@@ -165,7 +168,7 @@ flowchart LR
 		D -->|fork + exec| REC
 		REC --> STORE
 		REC --> DB
-		CFG -.-> VFS
+		BLOCKED -.-> VFS
 		CFG -.-> D
 		RULES -.-> D
 		WEB --> WSS
@@ -180,9 +183,6 @@ flowchart LR
 	FTP --> FTPD
 	CLOUD --> RCLONE
 	UPDATESERVER <-.-> RULEUP
-
-	style EXT fill:#f8f8f8,stroke:#999,stroke-dasharray:6 4
-	style SYS fill:#f4f8ff,stroke:#4a6fa5
 ```
 
 ## 6. 实现视图
@@ -330,7 +330,7 @@ sequenceDiagram
 
 ### 6.3 策略层
 
-#### 6.3.1 
+#### 6.3.1 主流程
 
 ```mermaid
 sequenceDiagram
@@ -507,7 +507,7 @@ sequenceDiagram
 
 主循环同时监听 VFS socket、60 秒 timerfd 和 permission socketpair。对 permission 队列使用 `while (fanotify_process_queued() > 0)` 完全排空，持续洪泛时可能饿死其他 fd；之后才 drain notify 并回收恢复子进程。
 
-## 8. 数据与部署视图
+## 8. 数据视图
 
 ### 8.1 SQLite
 
@@ -546,43 +546,6 @@ sequenceDiagram
 | `/run/gfrguardd/gfrguardd.sock` | VFS 事件 DGRAM |
 | `/run/gfrguardd/blocked` | SMB/FTP IP 阻断列表 |
 | `/var/log/gfrguard/gfrguard.log` | 结构化事件日志 |
-
-### 8.4 部署图
-
-```mermaid
-flowchart TB
-    subgraph NAS["GF2000 NAS / Linux"]
-        subgraph Systemd["systemd services"]
-            SMBD["smbd workers + gfrguard.so"]
-            DAEMON["gfrguardd root"]
-            FTPD["vsftpd"]
-            SYNC["rclone / neo-croner"]
-        end
-
-        KERNEL["Linux VFS + fanotify"]
-        RUN["/run/gfrguardd"]
-        ETC["/etc/gf2000"]
-        VAR["/var/lib/gf2000/rguard-store"]
-        LOG["/var/log/gfrguard"]
-        REC["/usr/bin/gfrguard-recover"]
-    end
-
-    SMBD -->|Unix DGRAM| DAEMON
-
-    FTPD --> KERNEL
-    SYNC --> KERNEL
-    KERNEL --> DAEMON
-
-    DAEMON --> RUN
-    DAEMON --> VAR
-    DAEMON --> LOG
-
-    ETC -.-> SMBD
-    ETC -.-> DAEMON
-
-    DAEMON -->|fork/exec| REC
-    REC --> VAR
-```
 
 ## 9. 大小和性能
 
