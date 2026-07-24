@@ -73,9 +73,82 @@
 | SQLite 嵌入式库 | 单节点部署，状态只在本机一致 |
 | YARA | 内容特征检测的事实标准 |
 
-## 3. 架构目标和约束
+## 3. 功能总体视图
 
-### 3.1 目标
+### 3.1 功能概述
+
+GFRGuard 为 GF2000 共享存储提供反勒索能力，核心功能四项：
+
+| 功能 | 说明 |
+|---|---|
+| 行为检测 | 实时监控文件操作行为（批量改写、重命名、删除、跨目录扩散）并结合内容信号（高熵、YARA），识别已知及未知勒索变种的活动 |
+| 实时原件备份 | 既有文件被覆盖、截断或删除前，自动将原件保存到安全备份区。即使文件随后被加密，也可随时恢复原始版本 |
+| 自动阻断 | 依据会话风险评分分级处置：达到极危时自动断开 SMB 连接、拒绝 FTP/云/本地通道后续写入、终止可疑进程，阻止破坏扩散 |
+| 恢复与告警 | 自动从备份区恢复受影响文件；WebUI 可视化管理，管理员实时掌握风险事件与处置结果 |
+
+防护覆盖四条写入路径：SMB 网络共享、FTP、云连携同步（Google Drive / OneDrive 等，防止云端被加密文件反向污染本地）、本机进程直接写入。
+
+### 3.2 功能拓扑
+
+```mermaid
+flowchart LR
+	subgraph SRC["① 文件来源"]
+		PC[PC 端<br/>SMB 网络共享写入]
+		FTP[FTP 客户端]
+		CLOUD[云端<br/>Google Drive / OneDrive / DropBox]
+		LOCAL[本机进程]
+	end
+
+	subgraph GF["GF2000 本体"]
+		subgraph CAP["② 拦截感知"]
+			VFS[VFS 拦截<br/>SMB 写入保护]
+			FAN[fanotify 拦截<br/>FTP / 云连携 / 本地写入保护]
+		end
+		ENG["③ 反勒索引擎<br/>行为统计 + 风险评分 0~100<br/>+ 内容信号（熵 / YARA）"]
+		BAK[("④ 安全备份区<br/>原件前像 + 操作记录")]
+		MGT["⑤ 恢复与管理<br/>文件恢复 / 告警通知 / WebUI"]
+	end
+
+	PC --> VFS
+	FTP --> FAN
+	CLOUD --> FAN
+	LOCAL --> FAN
+	VFS --> ENG
+	FAN --> ENG
+	VFS & FAN -->|破坏性操作前| BAK
+	ENG -->|风险评分分级处置| MGT
+	BAK --> MGT
+```
+
+- 拦截感知层对异常批量改写、加密、重命名等行为进行检查；破坏性操作先备份原件再放行；
+- 引擎按会话累计评分，依据评分分级处置（见 3.3）；
+- 达到极危时自动拦截可疑行为、断开来源，并从备份区恢复文件。
+
+### 3.3 防护流程与分级处置
+
+```mermaid
+flowchart LR
+	A[写入事件] --> B[行为统计<br/>& 风险评分 0~100]
+	B --> C{风险等级判断}
+	C -->|正常| D[仅记录日志<br/>继续监控]
+	C -->|可疑/高危| E[备份文件<br/>提升风险等级]
+	C -->|极危| F[断开连接 + 拒绝后续写入<br/>自动触发文件恢复]
+	E --> B
+	F --> G[恢复与管理服务<br/>文件恢复 / 告警通知 / 管理界面]
+```
+
+风险评分依据：① 批量覆盖写入　② 大量文件重命名（`.docx` → `.encrypted`）　③ 短时间大量删除　④ 跨目录扩散　⑤ 文件内容高度随机（加密特征）/ YARA 特征命中。
+
+分级处置原则：
+
+| 等级 | 处置 |
+|---|---|
+| 正常 / 可疑 / 高危 | 仅更新风险等级并记录，不打断业务 |
+| 极危（CRITICAL） | 立即阻断该会话（断开连接 / 拒绝写入 / 终止进程）+ 自动从备份区恢复受影响文件 |
+
+## 4. 架构目标和约束
+
+### 4.1 目标
 
 | 目标 | 当前实现手段 |
 |---|---|
@@ -86,7 +159,7 @@
 | 事件级恢复 | `event_id` 关联前像、新建文件和恢复状态 |
 | 本地部署 | 配置、规则、日志、数据库和前像均保存在设备本地 |
 
-### 3.2 硬约束
+### 4.2 硬约束
 
 | 约束 | 架构影响 |
 |---|---|
@@ -99,7 +172,7 @@
 | 单一行为维度不得单独触发阻断 | 任何单一计数维度（修改/重命名/删除/目录扩散）的加权贡献不得单独达到 CRITICAL；CRITICAL 必须由至少两个独立维度、或维度评分叠加定性证据（YARA/勒索扩展名）共同达到 |
 | 保护范围限定用户共享数据 | 只监控对外导出的 SMB 共享及 FTP/云/本地监控目录；不保护操作系统及系统关键文件，监控路径配置必须排除系统目录 |
 
-## 4. 用例视图
+## 5. 用例视图
 
 | 用例 | 当前代码路径 | 状态 |
 |---|---|---|
@@ -114,7 +187,7 @@
 | UC-9 邮件告警 | 事件进入邮件队列并定时汇总发送 | 规划 |
 | UC-10 签名规则升级 | 校验离线/在线规则包并原子替换 | 规划 |
 
-## 5. 逻辑视图
+## 6. 逻辑视图
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "22px"}}}%%
@@ -160,9 +233,9 @@ flowchart LR
 	UPD <-.-> RULEUP
 ```
 
-## 6. 实现视图
+## 7. 实现视图
 
-### 6.1 概述
+### 7.1 概述
 
 实现模型分为三层——**拦截层**负责"看到"文件操作并保存前像，**策略层**负责判断这些操作是否构成勒索行为，**持久化与工具层**负责记录状态和执行恢复。分层的目的只有一个：让"如何拦截"（Samba/fanotify 的内核细节）与"是否恶意"（评分策略）互不感知，任一层的实现变化不波及其他层。
 
@@ -215,11 +288,11 @@ flowchart TB
 	CLI --> PRE & QUAR & DB
 ```
 
-### 6.2 拦截层
+### 7.2 拦截层
 
 拦截层完成三件事：在四类通道（SMB / FTP / 云联携 / 本地）上截获文件操作、对破坏性操作先保存前像（保证"修改前可恢复"）、把事件归一化后上报给策略层。它只忠实记录"谁对哪个文件做了什么"，**不判断好坏**——判定全部留给策略层。
 
-#### 6.2.1 SMB VFS 模块
+#### 7.2.1 SMB VFS 模块
 
 `vfs_gfrguard.so` 是 Samba 的插件，运行在每个 smbd 进程内。它的功能：让 SMB 客户端的每一次写、重命名、删除、建目录都先经过 GFRGuard——已存在的文件被破坏前先留一份前像，随后把事件通过 DGRAM 上报给 daemon。对已阻断的客户端则直接拒绝访问。
 
@@ -265,12 +338,12 @@ sequenceDiagram
 	CL->>VFS: close
 	VFS->>VFS: 前像 vs 当前 FNV-1a ≤64MiB
 	VFS-)DMN: CLOSE / CONTENT_SAME
-	DMN->>DMN: process_msg 会话评分（见 6.3）
+	DMN->>DMN: process_msg 会话评分（见 7.3）
 ```
 
-#### 6.2.2 fanotify通道
+#### 7.2.2 fanotify通道
 
-FTP、云联携、本地三类通道不经过 Samba，统一改用 Linux 内核的 fanotify 接口拦截。它提供两种能力：**permission 事件**让 daemon 能在文件被打开的瞬间同步决定放行或拒绝（这是这三类通道阻断勒索进程的手段）；**notification 事件**异步告知已发生的创建、修改、删除、重命名，用于事后检测与评分。两类事件能力不同（见 3.2），因此用两个独立的 fd 入口：
+FTP、云联携、本地三类通道不经过 Samba，统一改用 Linux 内核的 fanotify 接口拦截。它提供两种能力：**permission 事件**让 daemon 能在文件被打开的瞬间同步决定放行或拒绝（这是这三类通道阻断勒索进程的手段）；**notification 事件**异步告知已发生的创建、修改、删除、重命名，用于事后检测与评分。两类事件能力不同（见 4.2），因此用两个独立的 fd 入口：
 
 双事件入口：
 
@@ -311,11 +384,11 @@ sequenceDiagram
 | DELETE | DELETE | 事后检测；内核无删除 permission 事件 |
 | FAN_RENAME | RENAME | 解析 OLD_DFID_NAME 与 NEW_DFID_NAME；保留源路径、目标完整路径和目标名用于扩展名分析 |
 
-### 6.3 策略层
+### 7.3 策略层
 
 策略层完成一件事：回答"这个用户/进程的行为像不像勒索软件"。它接收拦截层上报的归一化事件，把同一来源（`username@client_ip`）在一段时间内的操作聚合为一个**会话**，在会话上累计行为计数（修改/重命名/删除/目录扩散），叠加内容信号（熵/YARA），算出风险分；分数越过 CRITICAL 阈值就阻断该会话并触发恢复。整个策略层运行在 daemon 主线程，不感知事件来自 SMB 还是 fanotify。
 
-#### 6.3.1 主流程
+#### 7.3.1 主流程
 
 主流程即 `process_msg`：所有通道的事件在这里汇成一条处理管线——先过滤（开关、黑白名单、例外），再归属会话、触发内容分析、更新滑动窗口并评分，最后按分数决定记录或阻断。
 
@@ -346,12 +419,12 @@ sequenceDiagram
 		M->>DB: 记录 NEW_FILE / 事件统计
 		opt CRITICAL 且未阻断
 			M->>B: blocker + 自动黑名单持久化
-			M->>M: fork 延迟恢复（见 6.5）
+			M->>M: fork 延迟恢复（见 7.4）
 		end
 	end
 ```
 
-#### 6.3.2 会话状态
+#### 7.3.2 会话状态
 
 会话是行为检测的基本单位。单个文件操作无法区分"正常办公"和"勒索加密"——看的是**同一来源在一段时间内的操作模式**（短时间内大量修改 + 跨目录扩散 + 扩展名改变）。会话表就是为这个判断保存的滚动证据：每个 `username@client_ip` 一条记录，累计这段时间内它干了什么、风险到什么等级、是否已被阻断。
 
@@ -366,34 +439,53 @@ sequenceDiagram
 
 短窗口重置操作计数，长窗口重置目录集合、事件 ID 和风险等级，但阻断状态不自动清除。Cloud 使用更长的独立窗口。
 
-#### 6.3.3 评分模型
+#### 7.3.3 评分模型
 
-评分模型把会话里的各类证据折算成一个 0–100 的风险分，再按阈值映射到 Normal / Suspicious / High / Critical 四级。设计原则：**任何单一行为维度都不能单独定罪**（避免误伤备份软件等批量操作场景），CRITICAL 必须由多个独立维度、或维度加定性证据（YARA/勒索扩展名）共同支撑；同内容重复覆盖则反向降噪。
+评分模型把会话里的各类证据折算成一个 0–100 的风险分，再按阈值映射到 Normal / Suspicious / High / Critical 四级。规则分三类：**加分项**决定基础分，**封顶/清零修正**压制误报，**定性提升**放行强证据。计算顺序固定：先求加权和，再依次应用修正规则，最后按阈值定级。
 
-基础分数为：
+**① 加分项（加权求和）**
 
 $$
-S = \min\left(100,
-m w_m+r w_r+d w_d+t w_t+e w_e+x w_x+\sigma_h w_h
-\right)
+S = m w_m+r w_r+d w_d+t w_t+e w_e+x w_x+\sigma_h w_h
 $$
 
-其中：
+| 类别 | 证据 | 计入方式 |
+|---|---|---|
+| 行为计数 | 修改 $m$、重命名 $r$、删除 $d$、目录扩散 $t$ | 按会话内命中次数 × 各自权重累计 |
+| 扩展名证据 | 扩展名变化 $e$、勒索扩展名 $x$ | 同上，按次数累计 |
+| 内容信号 | 高熵 $\sigma_h \in \{0,1\}$ | 会话级布尔：首次命中置位、只加一次固定权重 $w_h$，不按命中文件数累计 |
+| 定性证据 | YARA 命中 | **不参与求和**，直接进入第③类提升规则 |
 
-- $m,r,d,t$ 分别为修改、重命名、删除和目录扩散计数——**行为计数**；
-- $e,x$ 分别为扩展名变化和勒索扩展名计数；
-- $\sigma_h \in \{0,1\}$ 为高熵会话级信号：首次命中置位、加固定权重 $w_h$，**不按命中文件数累计**；
-- 权重和 NORMAL/SUSPICIOUS/HIGH/CRITICAL 阈值来自策略配置。
+**② 封顶/清零修正（按序应用）**
 
-修正规则：
+| 规则 | 条件 | 效果 |
+|---|---|---|
+| 同内容降噪 | CONTENT_SAME 占写活动 ≥ 80% | 分数清零 |
+| 同内容降噪 | CONTENT_SAME 占写活动 ≥ 50% | 封顶到 warn 阈值以下 |
+| 纯删除保护 | 会话只有删除计数、无任何写/改名/扩展名/内容信号 | 封顶 60（配置校验须保证 critical > 60，否则仍可达 CRITICAL） |
+| 单维度封顶 | 仅一种非零行为计数，且无定性证据 | 封顶到 critical 阈值以下；出现第二维度或 YARA/勒索扩展名即解除。批量加密天然伴随目录扩散（$t>0$），不受此限 |
 
-- CONTENT_SAME 占写活动 80% 以上时分数清零；50% 以上时封顶到 warn 以下；
-- 纯删除会话封顶 60；若 critical 配置不大于 60，该规则仍可能到 CRITICAL，配置校验必须保证阈值关系；
-- 单一维度会话封顶到 critical 以下：仅含一种非零行为计数的会话（无论修改、重命名还是目录扩散），其加权分不得单独达到 CRITICAL；出现第二个维度或定性证据（YARA/勒索扩展名）时解除。典型批量加密天然伴随目录扩散（$t>0$），不受此限；
-- 任一 YARA 命中把分数至少提升到 critical；
-- 普通 OPEN/WRITE/TRUNCATE 延迟评分，等待 CLOSE 或更强信号，降低批量同内容写误报。
+**③ 定性提升**
 
-#### 6.3.4 内容信号的实际触发
+任一 YARA 命中：分数直接提升到不低于 critical 阈值——强证据一票定级，绕过所有封顶规则。
+
+**评分后处理**
+
+1. 总分 clamp 到 0–100；
+2. 按策略配置的 warn / high / critical 三档阈值映射到 Normal / Suspicious / High / Critical；
+3. 等级到动作的映射全通道一致：Normal / Suspicious / High 只记录事件、更新等级，不打断业务；**Critical 才触发 blocker 阻断 + fork 延迟恢复**（动作内容按通道差异化，见 7.4.1）。
+
+**通道间的一致性**
+
+所有通道使用**同一个 scorer、同一套权重和阈值**——评分规则不因来源不同而改变。差异只在三处：
+
+| 差异点 | 说明 |
+|---|---|
+| 统计窗口 | 云连携通道使用独立的更长窗口（默认短 60s / 长 180s），因为云同步事件受 API 限速、到达慢，全局短窗口会在积累到阻断分数前就把计数清零；其余通道用全局窗口 |
+| CONTENT_SAME | 只有 SMB 通道有前像可比对，同内容降噪规则实际只对 SMB 生效；fanotify 通道该计数恒为 0，规则自然不触发 |
+| 延迟评分 | 无高风险标志的 OPEN/WRITE/TRUNCATE 不立即评分，等 CLOSE / RENAME / DELETE 或勒索扩展名、高熵、YARA 任一标志出现时再算，降低批量同内容写误报；各通道行为一致 |
+
+#### 7.3.4 内容信号的实际触发
 
 内容信号回答"文件内容本身像不像被加密/是已知勒索样本"，作为行为评分之外的定性证据。三种信号在不同通道、不同时机触发，本节给出完整对照：
 
@@ -405,55 +497,40 @@ $$
 
 熵与 YARA 都是会话级布尔信号：会话首次命中后，该会话后续文件**不再执行对应扫描**
 
-### 6.4 持久化与工具层
+### 7.4 持久化与工具层
 
 这一层解决"阻断之后怎么办"和"状态记在哪"：阻断动作的执行、被破坏文件的恢复、YARA 规则的升级、以及所有事件与前像索引的落盘。
 
-#### 6.4.1 阻断与恢复
+#### 7.4.1 阻断与恢复
 
 阻断与恢复是本系统的最终目的：确认勒索行为后，**先止损**（切断该会话的访问能力），**再还原**（把被破坏的文件用前像写回原路径、把勒索新建的文件隔离）。
 
-阻断动作由策略层 blocker 执行，恢复由工具层 `gfrguard-recover` 完成
+阻断动作由策略层 blocker 执行，恢复由工具层 `gfrguard-recover` 完成。
 
-会话风险状态共五级：Normal / Suspicious / High / Critical / Blocked，阈值来自策略配置。越过 warn/high 阈值只改变风险等级，不产生动作；到达 Critical（或任一 YARA 命中直接提升）才进入阻断流程。完整时序：
+会话风险状态共五级：Normal / Suspicious / High / Critical / Blocked，阈值来自策略配置。越过 warn/high 阈值只改变风险等级，不产生动作；到达 Critical（或任一 YARA 命中直接提升）才进入阻断流程。业务时序：
 
 ```mermaid
 sequenceDiagram
-	participant D as gfrguardd<br/>(会话评分)
-	participant BLK as blocker<br/>(blocked 文件 / 黑名单)
-	participant R as restore launcher
+	participant D as gfrguardd<br/>（会话评分）
 	participant C as gfrguard-recover
-	participant DB as SQLite
-	participant ST as 存储<br/>(backups / quarantine / 原路径)
+	participant ST as 存储<br/>（备份区 / 隔离区 / 原路径）
 
-	Note over D: Normal → Suspicious → High<br/>仅更新风险等级，无动作
-	D->>D: 分数 ≥ critical 或 YARA 命中
-	Note over D: 状态: Critical
-	D->>BLK: blocker_execute（按通道差异化动作）
-	BLK->>BLK: 重建 blocked 文件<br/>自动黑名单持久化到策略 JSON<br/>SMB: smbcontrol close-share<br/>fanotify 通道: FAN_DENY / 终止进程
-	Note over D,BLK: 状态: Blocked<br/>后续事件由 blocked 缓存直接拒绝
-	D->>R: fork 恢复子进程
-	R->>R: sleep 配置延迟
-	R->>C: exec restore --event ID --auto
-	C->>DB: 查询该 event 的 created_files / protected_files
-	loop 动作一·删除（created_files 每行）
-		C->>ST: 新建文件移入 quarantine/<event>/<br/>（隔离区新增条目）
-		Note over C,DB: created_files 记录保留不删，<br/>供已处理事件详情展示（恢复动作=删除）
-	end
-	loop 动作二·还原（protected_files 每行）
-		C->>ST: 前像写回原路径
-		C->>DB: restore_status: pending → restored / failed
-	end
-	C->>DB: events: action_taken=restored,<br/>status=resolved, ended_at
-	D->>D: waitpid 回收并记录结果
-	Note over D,C: 保持 Blocked，仅管理员显式 unblock 后解除
+	Note over D: Normal → Suspicious → High<br/>仅更新风险等级，业务不受影响
+	D->>D: 会话评分达到 Critical
+	D->>D: ① 阻断该会话<br/>（断开连接 / 拒绝写入 / 终止进程）
+	Note over D: 状态 Blocked，后续访问一律拒绝
+	D->>C: ② 触发自动恢复（按事件 ID）
+	C->>ST: ③ 事件窗口内新建的文件移入隔离区
+	C->>ST: ④ 被破坏文件用备份区前像写回原路径
+	C-->>D: 恢复结果（成功 / 失败，记录供 WebUI 展示）
+	Note over D,C: 保持 Blocked，仅管理员确认处置后手动解除
 ```
 
-阻断动作的粒度边界：SMB 的 `smbcontrol smbd close-share` 是 share 粒度，可能断开同一共享上的无关会话；后续精确拒绝依赖 blocked 文件中的 IP。
+要点：阻断先于恢复，确保破坏停止后再还原；恢复范围由事件 ID 圈定——该事件保护过的文件还原、新建的文件隔离，不依赖逐文件损坏判定；阻断不随恢复自动解除，避免恢复期间同一来源再次写入。
 
-恢复对象由 `event_id` 下的 `protected_files` 和 `created_files` 决定，不依赖逐文件损坏判定。隔离对象是风险事件关联文件的恢复前当前版本，以及事件窗口中新建的常规文件；隔离不表示系统已经对该文件形成 damaged/corrupted/encrypted 判定。
+一个已知的粒度边界：SMB 阻断动作会断开整个共享连接，同共享上的无关会话可能被一并断开，随后按来源 IP 精确放行。
 
-#### 6.4.2 规则升级
+#### 7.4.2 规则升级
 
 规则升级完成的功能：让 YARA 检测规则可以随新勒索家族出现而更新——校验签名后原子替换规则目录，daemon 热重载生效，整个过程不中断检测。
 
@@ -486,18 +563,48 @@ sequenceDiagram
 
 设计决策：复用既有 SIGHUP 热重载通道，不新增 IPC；目录级 rename 保证 daemon 任意时刻要么看到完整旧规则、要么看到完整新规则；reload 失败回退旧规则，升级事故不影响检测主路径，符合故障放行原则。
 
-#### 6.4.3 SQLite 持久化
+#### 7.4.3 SQLite 持久化
 
 SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被保护文件与其前像的对应关系、恢复进度，都记录在此——恢复工具据此知道"该还原哪些文件"，webservice 据此向管理员展示事件详情。
 
-表结构见 8.1，本节只说明所有权与一致性边界：
+表结构见 9.1，本节只说明所有权与一致性边界：
 
 - **写入者唯一**：`events` / `protected_files` / `created_files` / `cloud_task_configs` 的业务写入全部在 daemon 主线程；recover 只更新恢复状态字段；webservice 只读查询。三方各自打开 `index.db`，不共享连接。
-- **跨层非原子**：前像文件创建（L1 VFS）与 `protected_files` 入库（L2 daemon）不是一个事务——进程在两者之间崩溃会产生无索引的磁盘前像；空间管理定时任务负责收敛（见 9.2）。
+- **跨层非原子**：前像文件创建（L1 VFS）与 `protected_files` 入库（L2 daemon）不是一个事务——进程在两者之间崩溃会产生无索引的磁盘前像；空间管理定时任务负责收敛（见 10.2）。
 - **schema 兼容**：用 `ALTER TABLE` 补充历史列做就地迁移，新旧版本 daemon / recover 可混跑。
-- **单机语义**：SQLite 保证本机事务一致，不支持多节点共享阻断状态（见 3.2 硬约束）。
+- **单机语义**：SQLite 保证本机事务一致，不支持多节点共享阻断状态（见 4.2 硬约束）。
 
-## 7. 进程视图
+## 8. 进程视图
+
+进程与线程关系：
+
+```mermaid
+flowchart LR
+	subgraph SMBD["smbd worker（每连接一个，Samba 管理）"]
+		VFST[vfs_gfrguard.so<br/>与 smbd 同线程]
+	end
+
+	subgraph DMN["gfrguardd（单进程，root）"]
+		MAIN[主线程<br/>epoll / process_msg / SQLite<br/>熵 / YARA / notify drain / timer / reap]
+		PTHR[fanotify permission 线程<br/>通道识别 / ALLOW·DENY]
+		MAIN <-->|SOCK_DGRAM socketpair| PTHR
+	end
+
+	subgraph BIZ["外部业务进程（不定）"]
+		VSF[vsftpd]
+		RCL[rclone]
+		LP[本地程序]
+	end
+
+	REC[gfrguard-recover<br/>按阻断事件 fork]
+	KERN[(Linux 内核 fanotify)]
+
+	VFST -->|AF_UNIX DGRAM| MAIN
+	KERN <-->|permission 应答| PTHR
+	KERN -->|notify 事件| MAIN
+	VSF & RCL & LP <-->|open 时被内核挂起| KERN
+	MAIN -->|fork + 延迟 exec| REC
+```
 
 | 执行单元 | 数量 | 主要职责 | 阻塞风险 |
 |---|---:|---|---|
@@ -509,9 +616,53 @@ SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被�
 
 主循环同时监听 VFS socket、60 秒 timerfd 和 permission socketpair。对 permission 队列使用 `while (fanotify_process_queued() > 0)` 完全排空，持续洪泛时可能饿死其他 fd；之后才 drain notify 并回收恢复子进程。
 
-## 8. 数据视图
+## 9. 数据视图
 
-### 8.1 SQLite
+数据流向总览：
+
+```mermaid
+flowchart LR
+	subgraph IN["事件来源"]
+		VFSM[VFS DGRAM]
+		FANM[fanotify 通道]
+	end
+
+	MSG["rguard_event_msg<br/>定长 4608 B 本机协议"]
+
+	subgraph DB["index.db（SQLite）"]
+		EV[events<br/>会话事件 / 峰值风险 / 状态]
+		PF[protected_files<br/>原路径 ↔ 前像 / 恢复状态]
+		CF[created_files<br/>事件窗口新建文件]
+		CT[cloud_task_configs<br/>被阻断云任务配置]
+	end
+
+	subgraph FS["文件系统"]
+		BKP[("backups/<br/>最早前像")]
+		QUR[("quarantine/<br/>恢复前隔离版本")]
+	end
+
+	POL["rguard-policy.json<br/>策略 / 阈值 / 黑白名单"]
+	YARA["yara-rules/<br/>内容特征规则"]
+	BLK["blocked 文件<br/>SMB/FTP 阻断列表"]
+	WEB[webservice 只读查询]
+	RECV[gfrguard-recover]
+
+	IN --> MSG --> EV
+	MSG --> PF & CF
+	POL -.->|SIGHUP 重读| MSG
+	EV -->|event_id 1:N| PF
+	EV -->|event_id 1:N| CF
+	EV -->|event_id 1:N| CT
+	PF -.->|前像路径指向| BKP
+	CF -.->|恢复时移入| QUR
+	YARA -.->|reload| MSG
+	EV --> BLK
+	DB --> WEB
+	RECV --> PF & CF & CT
+	RECV -->|前像写回原路径| BKP
+```
+
+### 9.1 SQLite
 
 当前 schema 包含：
 
@@ -524,7 +675,7 @@ SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被�
 
 代码包含兼容性迁移，用 `ALTER TABLE` 补充历史列。数据库使用 SQLite 单机事务语义；前像文件创建和 DB 插入不是一个原子事务。
 
-### 8.2 协议
+### 9.2 协议
 
 `rguard_event_msg` 是本机 ABI 风格固定结构：
 
@@ -536,7 +687,7 @@ SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被�
 
 该 socket 是安全边界：本机低权限进程可能伪造事件并影响评分、数据库和阻断。部署应收紧 Unix socket 权限或增加凭据校验（如 `SO_PASSCRED`）。
 
-### 8.3 文件布局
+### 9.3 文件布局
 
 | 路径 | 内容 |
 |---|---|
@@ -549,9 +700,9 @@ SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被�
 | `/run/gfrguardd/blocked` | SMB/FTP IP 阻断列表 |
 | `/var/log/gfrguard/gfrguard.log` | 结构化事件日志 |
 
-## 9. 大小和性能
+## 10. 大小和性能
 
-### 9.1 规模
+### 10.1 规模
 
 | 模块 | 代码规模 | 交付形态 | 二进制大小（-O2 -g，含调试信息） |
 |---|---:|---|---:|
@@ -563,7 +714,7 @@ SQLite 承担系统状态的唯一可信来源：每次风险事件、每个被�
 
 C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度集中在 daemon 的事件归一化和会话评分，不在代码量。
 
-### 9.2 影响架构的尺寸特征
+### 10.2 影响架构的尺寸特征
 
 | 尺寸 | 值 | 架构影响 |
 |---|---|---|
@@ -574,23 +725,22 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 | 熵采样 | 文件头 8 KiB | 只覆盖文件开头；尾部加密的文件可能漏检 |
 | 空间管理 | 60 s 定时，超 `max_usage_percent` 清理 `cleanup_days` 天前已恢复备份 | 前像存储有自我收敛上限 |
 
-### 9.3 性能约束
+### 10.3 性能约束
 
 | 路径 | 约束 | 手段 |
 |---|---|---|
-| SMB I/O 同步路径 | 非破坏性操作直通 `NEXT_*`，只允许一次 blocked 文件检查 | mtime 失效缓存，避免每次 stat |
 | SMB 前像复制 | 与客户端写操作同步完成 | reflink → copy_file_range → read/write 三级降级 |
 | 事件上报 | 不得阻塞 smbd | AF_UNIX DGRAM fire-and-forget，EAGAIN 有限重试后丢弃 |
 | fanotify permission 应答 | 应答时延直接等于业务进程 open 阻塞时间 | 独立线程、禁止无界内容扫描、故障优先放行 |
-| daemon 主循环 | YARA/CLOSE 哈希/SQLite 均在主线程 | 已知吞吐瓶颈；慢操作会推迟所有通道处理（见 6.3） |
+| daemon 主循环 | YARA/CLOSE 哈希/SQLite 均在主线程 | 已知吞吐瓶颈；慢操作会推迟所有通道处理（见 7.3） |
 
-## 10. 复用资产
+## 11. 复用资产
 
-### 10.1 公司 RAB 中心与部门资产
+### 11.1 公司 RAB 中心与部门资产
 
 当前仓库未声明复用公司 RAB 中心或部门资产，**待确认**。webservice/WEBUI 若来自平台既有框架，应在此补充来源。
 
-### 10.2 项目内复用
+### 11.2 项目内复用
 
 | 资产 | 复用方式 |
 |---|---|
@@ -598,7 +748,7 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 | `gfrguardd_blocker.c` | recover 工具直接编译复用，解除阻断逻辑不复制 |
 | `rguard_event_msg` 定长协议 | VFS 与 daemon 共享同一头文件，结构偏移静态断言锁定 |
 
-### 10.3 外部资产
+### 11.3 外部资产
 
 | 资产 | 来源/许可 | 复用方式 |
 |---|---|---|
@@ -609,7 +759,7 @@ C 代码合计约 12.2k 行。规模结论：这是一个小系统，复杂度�
 | Flask | BSD / BSD-2 | webservice 框架 |
 | fanotify / inotify / systemd | Linux 平台 | 内核与系统能力，非代码资产 |
 
-## 11. 质量
+## 12. 质量
 
 | 质量属性 | 架构手段 |
 |---|---|
