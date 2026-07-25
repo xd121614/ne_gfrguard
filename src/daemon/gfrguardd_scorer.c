@@ -69,15 +69,16 @@ void scorer_calculate(struct session_state *s, const struct rguard_policy *p)
     const struct rguard_weights *w = &p->scoring.weights;
     /* Content signals are session-level booleans, NOT per-file counts
      * (patent avoidance: no blocking by damaged-file count).  High
-     * entropy adds its weight at most once; YARA is qualitative
-     * evidence that forces CRITICAL below and never joins the sum. */
+     * entropy and YARA each add their weight at most once per session —
+     * a YARA hit is scored evidence like entropy, not an override. */
     long score = (long)s->modified_count   * w->modified
                + (long)s->rename_count     * w->rename_w
                + (long)s->delete_count     * w->delete_w
                + (long)s->touched_dirs     * w->dirs
                + (long)s->ext_change_count * w->ext_change
                + (long)s->ransom_ext_count * w->ransom_ext
-               + (long)(s->high_entropy_count ? 1 : 0) * w->high_entropy;
+               + (long)(s->high_entropy_count ? 1 : 0) * w->high_entropy
+               + (long)(s->yara_match_count   ? 1 : 0) * w->yara_match;
 
     /* Content-same suppression: if a large proportion of file operations
      * resulted in identical content (normal overwrite pattern), cap the
@@ -114,22 +115,16 @@ void scorer_calculate(struct session_state *s, const struct rguard_policy *p)
      * reach CRITICAL — otherwise the design reads as "block on write
      * count/frequency alone".  CRITICAL requires two independent
      * dimensions, or dimension score plus qualitative evidence
-     * (YARA match / ransomware extension).  Mass encryption still
+     * (ransomware extension).  Mass encryption still
      * blocks: it inherently spreads across directories (dirs > 0). */
     int dims = (s->modified_count   > 0) + (s->rename_count > 0)
              + (s->delete_count     > 0) + (s->touched_dirs > 0)
              + (s->ext_change_count > 0);
-    bool evidence = s->yara_match_count > 0 || s->ransom_ext_count > 0;
+    bool evidence = s->ransom_ext_count > 0;
     if (dims == 1 && !evidence) {
         long cap = (long)p->scoring.thresholds.critical - 1;
         if ((long)s->risk_score > cap)
             s->risk_score = (uint32_t)cap;
-    }
-
-    /* YARA match or ransomware extension: override to at least CRITICAL. */
-    if (s->yara_match_count > 0) {
-        if (s->risk_score < (uint32_t)p->scoring.thresholds.critical)
-            s->risk_score = (uint32_t)p->scoring.thresholds.critical;
     }
 
     const struct rguard_thresholds *t = &p->scoring.thresholds;
