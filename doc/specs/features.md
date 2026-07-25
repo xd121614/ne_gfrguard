@@ -43,7 +43,7 @@
 | 特性 | 说明 | 状态 | 需求/验证 |
 |------|------|------|----------|
 | 会话级行为追踪 | 1024 槽哈希表，session_key 统一 `username@client_ip`（骨架 rguard_make_session_key 推导，通道只填字段）；双窗口 10s/30s（云通道独立 60s/180s，适配 API 节奏防慢速漏检） | ✅ | FR-DAEMON-02 / L2 test_session |
-| 8 维加权评分 | modified/rename/delete/dirs/ext_change/ransom_ext/内容信号加权维度，阈值 30/60/80；评分以行为指标为主，不以"损坏文件数"驱动阻断 | ✅ | FR-DAEMON-05 / L2 test_scorer |
+| 8 维加权评分 | modified/rename/delete/dirs/ext_change/ransom_ext/内容信号加权维度，评分以行为指标为主，不以"损坏文件数"驱动阻断 | ✅ | FR-DAEMON-05 / L2 test_scorer |
 | 评分特殊规则 | CONTENT_SAME 比例抑制、纯删除封顶 60 不阻断；内容检测结果折入行为评分维度，不逐文件标记损坏状态、不按"损坏文件数"阻断 | ✅ | L2 test_scorer / L3[22] |
 | Shannon 熵分析 | 前 8KB 采样，阈值 7.0；同一文件仅采样一次，同一会话首次命中后不再重复检测 | ✅ | FR-DAEMON-03 / L3[17][18] |
 | 自有内容规则 | 赎金信/加密结构规则，容错编译；同一会话首次命中后中止后续扫描 | ✅ | FR-DAEMON-04 / L3[2][15][16] |
@@ -59,6 +59,9 @@
 | 自动恢复 | CRITICAL 阻断后 fork+exec gfrguard-recover 还原 + 清理勒索新建文件 | ✅ | FR-DAEMON-07 / L3[4] |
 | 手动恢复 CLI | restore / unblock / cloud-restore 子命令 | ✅ | FR-RECOVER-01 |
 | 备份空间管理 | 60s 定时检查，超 80% 清理 30 天前已恢复备份 | ✅ | FR-DAEMON-09 |
+| 备份/隔离区容量分配与初始化 | 启动探测 XFS Project Quota：支持则 `/data/.rguard` + quota 硬上限 + `mount --bind`；不支持则 `backup.img` fallocate 物理预占 + loop 挂载；两条路径汇合到同一挂载点，上层 I/O 无差别（备份区默认 100GB、隔离区默认 50GB） | 📋 | FR-DAEMON-11 / architecture_v2 7.4.4 |
+| 存储区安全屏障 | systemd PrivateMounts：挂载点仅 daemon 挂载命名空间可见，宿主机视角为空目录——勒索进程无法遍历/破坏前像，隔离样本不会误执行或经 SMB 二次导出；recover 由 daemon fork 继承命名空间天然可访问 | 📋 | FR-DAEMON-12 / architecture_v2 7.4.4 |
+| 单文件前像大小上限 | 可选档位 100MB/200MB/500MB/1GB/2GB/5GB，默认不限制；超限文件跳过前像、事件照常评分并标记"不受前像保护"，不阻断业务；同时封顶 fanotify permission 应答时延 | 📋 | FR-CONSTRAINT-04 / architecture_v2 10.2.1 |
 | 保护范围 | 仅限明确配置的对外用户共享；OS 关键目录（/boot /etc /bin /sbin /lib /usr 等）不在保护范围内 | ✅ | FR-CONSTRAINT-01 |
 
 ## 6. 配置与运维
@@ -70,5 +73,6 @@
 | 例外与文件类型过滤 | exceptions.files/folders + file_extensions.all/manual | ✅ | FR-CONFIG-04/05 / L3[5]-[7] |
 | 配置热重载 | SIGHUP 重读策略/评分/名单/规则，并**重建 fanotify marks**（监控路径与通道开关变更即时生效；重载瞬间停/启 perm 线程，内核排队不丢事件） | ✅ | FR-CONFIG-02 / L3[25] |
 | 结构化日志 | 分级事件码 + JSON 详情，events 表全程留痕 | ✅ | design 4.2 |
+| 事件存储上限与 CSV 归档 | events 表仅保留最近 10000 条 / 30 天，超出每日归档为 CSV 后删库：当日无事件不生成 CSV（1 条系统日志）；≤10000 生成 1 个 CSV；>10000 按每文件最多 10000 条拆分多个 CSV；每个 CSV 输出已处理/未处理两条系统日志 | 📋 | FR-DAEMON-13 / architecture_v2 10.2.3 |
 | 规则升级机制 | `gfrguard-rule-update`（独立 CLI 不常驻）：签名+哈希校验 → 目录级 rename 原子替换规则目录 → SIGHUP 热生效，reload 失败回退旧规则 | 📋 | FR-RULE-03 / architecture_v2 6.4.2 |
 | 邮件告警 | 事件订阅 + 异步 SMTP + 10 分钟聚合发送 | 📋 | architecture 5.2.6 |

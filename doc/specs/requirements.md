@@ -183,6 +183,30 @@
 **FR-DAEMON-10: 白名单与黑名单管理**
 - **描述**：白名单支持 user/IP（CIDR/范围）+ 本地进程名白名单（`whitelist_comm`）；黑名单支持精确匹配 + CIDR/范围 + auto_add 标记。auto 加入的 IP 以 `{"ip", "auto_add": true}` 对象形式即时持久化到 rguard-policy.json（与手动条目同一列表，按 auto_add 区分），SIGHUP 热重载和 daemon 重启均不丢失，仅管理员显式删除可解除。
 
+**FR-DAEMON-11: 备份区/隔离区初始化与容量配额**
+- **描述**：gfrguardd 启动时在 `/data`（XFS）初始化备份区与隔离区两个**独立配额区域**（默认 100 GB / 50 GB）；探测 XFS Project Quota 能力选择实现路径，两条路径汇合到同一挂载点，对上层备份/隔离写入代码完全透明。
+- **核心规则**：
+  - 支持 Project Quota：创建 `/data/.rguard/{backups,quarantine}`，两个目录分别设置 project quota 硬上限（写满返回 EDQUOT），`mount --bind` 进 daemon 挂载命名空间
+  - 不支持 Project Quota：创建 `/data/backup.img` 与 `/data/quarantine.img`，分别 `fallocate` 物理预占，格式化为 XFS 后 `mount -o loop`（镜像固定大小天然封顶）
+  - 两区配额相互独立：隔离样本增长不得挤占前像空间，反之亦然
+  - 落盘统一走 reflink → copy_file_range → read/write 降级（与 FR-VFS-02 共享 rguard_backup.h 实现）
+
+**FR-DAEMON-12: 存储区安全屏障（PrivateMounts）**
+- **描述**：备份区/隔离区经 systemd `PrivateMounts` 挂载，仅在 daemon 挂载命名空间可见；宿主机全局命名空间视角下挂载点始终为空目录。
+- **核心规则**：
+  - 勒索进程（SMB / FTP / 本地，均运行在宿主命名空间）无法遍历、删除前像
+  - 隔离区样本不会被宿主侧误执行，也不会经 SMB 共享再次导出（防二次扩散）
+  - gfrguard-recover 由 daemon fork + exec 启动，继承同一命名空间获得备份区访问权，不新增授权通道
+
+**FR-DAEMON-13: 事件存储上限与 CSV 归档**
+- **描述**：events 表仅保留**最近 10000 条且不超过 30 天**的事件；每日归档任务将超出保留窗口的事件导出为 CSV，随后从库中删除。
+- **核心规则**：
+  - 当日无事件：不生成 CSV，输出 1 条系统日志（当日无事件，跳过归档）
+  - 当日事件 ≤ 10000：生成 1 个 CSV，输出 2 条系统日志（已处理事件数 / 未处理事件数）
+  - 当日事件 > 10000：按每文件最多 10000 条拆分多个 CSV，每个 CSV 各输出 2 条系统日志
+  - CSV 存放于日志目录（`/var/log/gfrguard/archive/`），位于宿主命名空间可读位置，不在 FR-DAEMON-12 的私有挂载内
+  - 归档只删除事件索引（events 及关联行），不动前像；前像生命周期由 FR-DAEMON-09 独立管理
+
 ### 3.3. FTP 反勒索模块
 
 **FR-FTP-01: FTP 文件操作同步拦截**
@@ -300,8 +324,8 @@
 - **描述**：提供独立升级工具 `gfrguard-rule-update`（按需执行，不常驻），支持从离线规则包或在线升级服务器获取新版全量规则，安全替换现有规则集并热生效。
 - **核心规则**：
   - 完整性校验：签名校验 + 哈希校验，校验失败则报错退出，现有规则不变
-  - 原子替换：目录级 rename 替换 `/etc/gf2000/yara-rules/`，daemon 任意时刻要么看到完整旧规则、要么看到完整新规则
-  - 热生效：替换后向 gfrguardd 发送 SIGHUP 触发 `yara_engine_reload`；reload 失败回退旧规则并记录日志，升级事故不影响检测主路径
+  - 原子替换：目录级 rename 替换，daemon 任意时刻要么看到完整旧规则、要么看到完整新规则
+  - 热生效：替换后向 gfrguardd 发送 SIGHUP 触发reload；reload 失败回退旧规则并记录日志，升级事故不影响检测主路径
   - 复用既有 SIGHUP 热重载通道，不新增 IPC 机制
 
 ---
@@ -331,3 +355,11 @@ GFRGuard 仅保护经由明确配置的 SMB 共享、FTP 目录、云同步目�
 - **不计数、不判定**：系统不逐文件标记 damaged/corrupted/encrypted 状态，不累计"损坏文件数量"，不按"损坏文件数≥N"触发阻断。高熵为会话级布尔信号——首次命中置位、固定权重只加一次；YARA 为定性证据——任一命中直接把会话提升至 CRITICAL，不参与加权求和；
 - **会话级去重**：同一会话首次命中某内容信号后，该会话后续文件不再执行对应扫描；窗口重置清空命中状态后扫描自动恢复；
 - **阻断多维性**：任何单一行为计数维度（修改 / 重命名 / 删除 / 目录扩散）的加权贡献不得单独达到 CRITICAL；CRITICAL 必须由至少两个独立行为维度、或维度评分叠加定性证据（YARA / 勒索扩展名）共同达到。
+
+**FR-CONSTRAINT-04: 单文件前像大小上限**
+
+单个文件的前像大小支持配置上限，默认**不限制**；可选档位 100 MB / 200 MB / 500 MB / 1 GB / 2 GB / 5 GB。本约束是 FR-CONSTRAINT-02"固定前像"的唯一例外，且仅在管理员显式开启后生效：
+
+- 超过上限的既有文件发生破坏性操作时：跳过前像创建，事件照常上报并参与评分，记录"该文件不受前像保护"供 WebUI 展示；
+- 不因无法备份而阻断业务（与 permissive 语义一致）；
+- 该上限同时是 fanotify permission 应答时延的硬封顶——备份降级为整文件拷贝时，业务进程 open 被内核挂起的时长与文件大小成正比。
