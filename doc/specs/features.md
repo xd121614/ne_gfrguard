@@ -1,78 +1,121 @@
 # GFRGuard 特性列表
 
-## 1. SMB 通道（VFS 模块 `vfs_gfrguard.so`）
+按管理界面页面组织（对应 demo 原型）。
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| 文件操作实时拦截 | openat/pwrite/ftruncate/renameat/unlinkat/mkdirat/close 九回调，客户端透明 | ✅ | FR-VFS-01 / L3[1]-[12] |
-| O_APPEND 绕过防御 | append 打开不计风险，但 ftruncate 截断照样拦截备份 | ✅ | FR-VFS-01 |
-| 删除前备份（fanotify 通道） | unlink 不经 open，内核无法提供内容——仅 SMB 通道具备 | — 能力边界 | design 3.3 固有限制 |
-| 相同内容覆盖识别 | close 时 FNV-1a 比对备份与现文件，相同则 CONTENT_SAME 抑制评分（防批量部署误报） | ✅ | FR-VFS-03 / L3 |
-| 会话阻断检查 | 每操作前查 blocked 文件（stat-mtime 纳秒缓存），命中 EACCES | ✅ | FR-VFS-04 / L3[3] |
-| 事件上报 | AF_UNIX DGRAM fire-and-forget，EAGAIN 重试 ×3 | ✅ | FR-VFS-05 |
-| 多 Samba 版本适配 | VFS 接口 49/51 条件编译（4.19.6 / 4.23.5） | ✅ | L3 双版本全绿 |
+状态标记：✅ 已实现 ｜ 📋 已规划待实现 ｜ ⚠️ 需求未确认
 
-## 2. fanotify 通道公共能力（FTP / 本地 / 云）
+## 1. 许可管理
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| open 同步拦截 + 备份 | FAN_OPEN_PERM 内核阻塞 open，黑名单 DENY + 写前备份（独立 perm 线程，防死锁） | ✅ | FR-FTP-01 等 / L3[13][14][19] |
-| 递归目录监控 | nftw 遍历整树打 mark；新建/移入目录动态补 mark；溢出重遍历；缺失路径 60s 重试 | ✅ | L3[19][21] |
-| 事件覆盖与 VFS 对齐 | FID group：MODIFY（覆盖写+truncate）/CREATE（含 mkdir）/DELETE/RENAME/CLOSE_WRITE | ✅ | L3[20]-[23] |
-| 勒索后缀改名检测 | RENAME → EXT_CHANGE/RANSOM_EXT 评分 | ✅ | L3[23] |
-| 洪泛抑制（fangate） | 同一 (会话,文件) 每评分窗口只计一次改写分，大文件上传不误判；备份/黑名单/CLOSE 不受门限 | ✅ | design 3.3 / L2 test_fangate + L3[24] |
-| 自事件过滤 | daemon 备份/恢复回写不进评分管线（pid 过滤） | ✅ | design 3.3 |
-| 内核降级兼容 | <5.9 无 FID 支持时自动降级为仅 CLOSE_WRITE 检测 | ✅ | design 3.3 |
-| 事前拦截 delete/rename/mkdir | fanotify 无对应 perm 事件，仅能事后检测+阻断（内核能力边界，永不对齐 VFS） | — 能力边界 | design 3.3 固有限制 |
+| 特性 | 说明 |
+| --- | --- |
+| 📋 许可激活 | 通过"激活"操作导入许可，启用防勒索功能 |
+| 📋 许可状态展示 | 展示激活状态（未激活/已激活）与有效期 |
 
-## 3. 通道专属能力
+## 2. 基本设置
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| FTP 会话识别 | vsftpd cmdline 解析（本地/匿名/虚拟用户）+ socket-inode/UID 兜底 | ✅ | FR-FTP-01 / L3[13][15][17] |
-| FTP 阻断 | FAN_DENY + SIGTERM vsftpd child + blocked 文件（与 SMB 互通） | ✅ | FR-FTP-02 / L3[13] |
-| 云任务识别 | rclone cmdline → task_name，排除 `.partial~/.tmp/.rclone-tmp` 临时文件 | ✅ | FR-CLOUD-01 |
-| 云任务阻断/恢复 | FAN_DENY + neo-croner delete + kill 进程树；任务配置存库，恢复时重注册 | ✅ | FR-CLOUD-02/03 |
-| 云通道用户解析 | cloud_resolve_user 当前为 mock（固定 "cloud"），待 neo-croner query 补全 | ⚠️ | design 3.5 |
-| 云通道 notify 检测 | 与 FTP/本地同构：CLOSE_WRITE→YARA/熵、MODIFY/DELETE/RENAME 评分；阻断经 cloud_block_task | ✅ | FR-DAEMON-04 / L3[26] |
-| 本地进程追踪 | session=`<comm>@local:<pid>:<starttime>` 防 PID 复用；进程名白名单直接放行 | ✅ | FR-LOCAL-01 / L3[14][19] |
-| 本地阻断 | FAN_DENY + SIGKILL + 审计表 | ✅ | FR-LOCAL-02 / L3[14][19] |
+| 特性 | 说明 |
+| --- | --- |
+| ✅ 勒索攻击防御总开关 | 一键启停全部防护（protection.enabled） |
+| ✅ 四通道子开关 | GF2000 本体（本地）/ SMB / 云连携 / FTP 独立启停 |
+| ✅ 发现勒索病毒后动作 | 自动恢复文件（默认：CRITICAL 阻断后自动还原被覆盖文件 + 清理勒索新建文件）/ 手动恢复文件（事件记录页手动触发）+ 事件更新为已处理 |
+| ✅ 保护文件类型 | 保护所有文件类型（默认），或按扩展名列表仅保护指定类型 |
+| 📋 引擎版本展示与更新 | 展示当前引擎版本，支持更新 |
+| 📋 规则库版本展示与更新 | 签名+哈希校验 → 目录级 rename 原子替换规则目录 → SIGHUP 热生效，reload 失败回退旧规则 |
 
-## 4. 检测引擎（gfrguardd 通用）
+## 3. 隔离区设置
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| 会话级行为追踪 | 1024 槽哈希表，session_key 统一 `username@client_ip`（骨架 rguard_make_session_key 推导，通道只填字段）；双窗口 10s/30s（云通道独立 60s/180s，适配 API 节奏防慢速漏检） | ✅ | FR-DAEMON-02 / L2 test_session |
-| 8 维加权评分 | modified/rename/delete/dirs/ext_change/ransom_ext/内容信号加权维度，评分以行为指标为主，不以"损坏文件数"驱动阻断 | ✅ | FR-DAEMON-05 / L2 test_scorer |
-| 评分特殊规则 | CONTENT_SAME 比例抑制、纯删除封顶 60 不阻断；内容检测结果折入行为评分维度，不逐文件标记损坏状态、不按"损坏文件数"阻断 | ✅ | L2 test_scorer / L3[22] |
-| Shannon 熵分析 | 前 8KB 采样，阈值 7.0；同一文件仅采样一次，同一会话首次命中后不再重复检测 | ✅ | FR-DAEMON-03 / L3[17][18] |
-| 自有内容规则 | 赎金信/加密结构规则，容错编译；同一会话首次命中后中止后续扫描 | ✅ | FR-DAEMON-04 / L3[2][15][16] |
-| 勒索扩展名检测 | RENAME 与 NEW_FILE 创建均比对扩展名库（127 种）并计分 | ✅ | FR-DAEMON-08 / L3[23][27] |
-| 白/黑名单 | user/IP（含 CIDR/范围）；黑名单 auto_add 内存 FIFO（上限 64）+ 以 {ip, auto_add:true} 对象即时持久化 rguard-policy.json（重载/重启不丢，前端按标志区分手动/自动，均可删除） | ✅ | FR-DAEMON-10 / L2 test_blacklist + L3[8]-[12] |
+| 特性 | 说明 |
+| --- | --- |
+| 📋 隔离区路径 | 隔离区存储路径（默认 `/var/lib/gf2000/rguard-store/quarantine`） |
+| 📋 隔离区容量配置 | 默认 50GB；启动探测 XFS Project Quota，支持则 quota 硬上限 + `mount --bind`，不支持则 img fallocate 物理预占 + loop 挂载，两条路径汇合到同一挂载点 |
+| 📋 隔离区写满策略 | （语义见第 8 章边界与容量限制） |
+| 📋 使用情况展示 | 已用容量 / 总容量与百分比 |
+| 📋 清空隔离区 | 一键移除隔离区内全部内容（危险操作，需二次确认） |
 
-## 5. 备份与恢复
+## 4. 安全备份区设置
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| 固定前像保护 | 对既有文件的覆盖写/truncate 统一创建前像（不依据文件重要性、进程恶意性或风险分选择性触发）；reflink→copy_file_range→read/write 三级回退，VFS/daemon 共享实现；仅限配置用户共享，OS 关键目录不纳入 | ✅ | FR-VFS-02/FR-FTP-03/FR-CONSTRAINT-01 / L2 test_backup + XFS 实测 |
-| 按通道差异化阻断 | SMB: blocked+smbcontrol；FTP: DENY+kill；云: neo-croner；本地: SIGKILL | ✅ | FR-DAEMON-06 |
-| 自动恢复 | CRITICAL 阻断后 fork+exec gfrguard-recover 还原 + 清理勒索新建文件 | ✅ | FR-DAEMON-07 / L3[4] |
-| 手动恢复 CLI | restore / unblock / cloud-restore 子命令 | ✅ | FR-RECOVER-01 |
-| 备份空间管理 | 60s 定时检查，超 80% 清理 30 天前已恢复备份 | ✅ | FR-DAEMON-09 |
-| 备份/隔离区容量分配与初始化 | 启动探测 XFS Project Quota：支持则 `/data/.rguard` + quota 硬上限 + `mount --bind`；不支持则 `backup.img` fallocate 物理预占 + loop 挂载；两条路径汇合到同一挂载点，上层 I/O 无差别（备份区默认 100GB、隔离区默认 50GB） | 📋 | FR-DAEMON-11 / architecture_v2 7.4.4 |
-| 存储区安全屏障 | systemd PrivateMounts：挂载点仅 daemon 挂载命名空间可见，宿主机视角为空目录——勒索进程无法遍历/破坏前像，隔离样本不会误执行或经 SMB 二次导出；recover 由 daemon fork 继承命名空间天然可访问 | 📋 | FR-DAEMON-12 / architecture_v2 7.4.4 |
-| 单文件前像大小上限 | 可选档位 100MB/200MB/500MB/1GB/2GB/5GB，默认不限制；超限文件跳过前像、事件照常评分并标记"不受前像保护"，不阻断业务；同时封顶 fanotify permission 应答时延 | 📋 | FR-CONSTRAINT-04 / architecture_v2 10.2.1 |
-| 保护范围 | 仅限明确配置的对外用户共享；OS 关键目录（/boot /etc /bin /sbin /lib /usr 等）不在保护范围内 | ✅ | FR-CONSTRAINT-01 |
+| 特性 | 说明 |
+| --- | --- |
+| 📋 备份区路径 | 备份区存储路径（默认 `/var/lib/gf2000/rguard-store/backups`） |
+| 📋 备份区容量配置 | 默认 100GB；容量实现与隔离区相同（quota / loop 双路径） |
+| 📋 单文件备份大小限制 | 可选档位 100MB/200MB/500MB/1GB/2GB/5GB，默认不限制；超限文件跳过前像、事件照常评分并标记"不受前像保护"，不阻断业务 |
+| 📋 备份区写满策略 | （语义见第 8 章边界与容量限制） |
+| 📋 使用情况展示 | 已用容量 / 总容量与百分比 |
+| 📋 清空安全备份区 | 一键删除备份区全部历史副本（危险操作，需二次确认） |
 
-## 6. 配置与运维
+## 5. 黑白名单
 
-| 特性 | 说明 | 状态 | 需求/验证 |
-|------|------|------|----------|
-| JSON 统一配置 | rguard-policy.json 全量策略，全参数有默认值 | ✅ | FR-CONFIG-01 / L2 test_config |
-| 总开关 + 四通道子开关 | protection.{enabled, smb, ftp, cloud_sync, host} | ✅ | FR-CONFIG-03 |
-| 例外与文件类型过滤 | exceptions.files/folders + file_extensions.all/manual | ✅ | FR-CONFIG-04/05 / L3[5]-[7] |
-| 配置热重载 | SIGHUP 重读策略/评分/名单/规则，并**重建 fanotify marks**（监控路径与通道开关变更即时生效；重载瞬间停/启 perm 线程，内核排队不丢事件） | ✅ | FR-CONFIG-02 / L3[25] |
-| 结构化日志 | 分级事件码 + JSON 详情，events 表全程留痕 | ✅ | design 4.2 |
-| 事件存储上限与 CSV 归档 | events 表仅保留最近 10000 条 / 30 天，超出每日归档为 CSV 后删库：当日无事件不生成 CSV（1 条系统日志）；≤10000 生成 1 个 CSV；>10000 按每文件最多 10000 条拆分多个 CSV；每个 CSV 输出已处理/未处理两条系统日志 | 📋 | FR-DAEMON-13 / architecture_v2 10.2.3 |
-| 规则升级机制 | `gfrguard-rule-update`（独立 CLI 不常驻）：签名+哈希校验 → 目录级 rename 原子替换规则目录 → SIGHUP 热生效，reload 失败回退旧规则 | 📋 | FR-RULE-03 / architecture_v2 6.4.2 |
-| 邮件告警 | 事件订阅 + 异步 SMTP + 10 分钟聚合发送 | 📋 | architecture 5.2.6 |
+| 特性 | 说明 |
+| --- | --- |
+| ✅ IP 黑/白名单 | 新增/删除；支持单个 IP、CIDR、地址范围；黑名单命中即拒绝访问 |
+| ✅ 用户黑/白名单 | 按用户名新增/删除 |
+| ✅ 自动黑名单标记 | 勒索检测命中自动加入 IP 黑名单并以"自动"标记区分手动条目；自动条目 FIFO（超上限覆盖最旧）+ 以 {ip, auto_add:true} 即时持久化 rguard-policy.json，重载/重启不丢，手动/自动条目均可删除（容量上限见第 8 章） |
+| 📋 名单导入/导出 | IP黑/IP白/用户黑/用户白四类名单分别支持批量导入与导出 |
+
+## 6. 例外设置
+
+| 特性 | 说明 |
+| --- | --- |
+| ✅ 例外文件 | 例外文件一览，新增/删除；例外文件不参与评分与拦截 |
+| ✅ 例外文件夹 | 例外文件夹一览，新增/删除；目录整体排除于监控与评分 |
+| ⚠️ 文件/文件夹 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+
+## 7. 事件记录
+
+### 7.1 勒索检测日志
+
+| 特性 | 说明 |
+| --- | --- |
+| ✅ 检测事件记录 | events 表全程留痕：日期、检测类型（本地/SMB/云连携/FTP）、用户、客户端IP、风险评分、保护文件数、创建文件数 |
+| ✅ 未处理/已处理分栏 | 事件按处置状态分栏展示与流转 |
+| 📋 事件筛选与清除 | 按时间范围/用户名/客户端IP/风险评分阈值/检测类型组合筛选 |
+| ✅ 事件级恢复 | 对事件执行恢复：还原被覆盖文件 + 清理勒索新建文件；"手动恢复"模式下由页面触发 |
+| 📋 文件详情 | 事件内逐文件明细：动作类型（覆盖/新建）、恢复状态、文件大小、文件路径 |
+| ⚠️ 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+| 📋 导出 CSV | 导出当前筛选结果 |
+
+### 7.2 隔离区
+
+| 特性 | 说明 |
+| --- | --- |
+| 📋 隔离事件列表 | 日期、检测类型、用户、客户端IP、隔离时间、文件数；支持时间/用户/IP/检测类型/文件名路径筛选 |
+| 📋 从隔离区恢复 / 删除 | 事件级恢复隔离文件，或彻底删除 |
+| 📋 隔离文件详情 | 逐文件勾选，恢复所选 / 删除所选，按文件名/路径检索 |
+| ⚠️ 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+
+### 7.3 阻断链接
+
+| 特性 | 说明 |
+| --- | --- |
+| ✅ 阻断会话记录 | 被阻断连接列表：日期、阻断类型（勒索检测 / IP黑名单 / 用户黑名单）、用户、客户端IP |
+| ✅ 解除阻断 | 手动解除阻断（unblock，移除 blocked 记录），会话恢复访问 |
+| 📋 筛选与导出 CSV | 按时间/用户/IP/阻断类型筛选，导出 CSV |
+
+### 7.4 告警
+
+| 特性 | 说明 |
+| --- | --- |
+| 📋 系统日志 | 无独立页面，依附事件流 |
+| 📋 邮件告警 | 无独立页面，依附事件流 |
+
+***
+
+## 8. 边界与容量限制
+
+各项容量上限与写满行为的统一定义，页面条目中的相关设置以此章为准。
+
+| 特性 | 说明 |
+| --- | --- |
+| 📋 备份区写满策略 | 配置备份区自动清理机制（时间/百分比两个维度都支持配置），保证备份区不会满，清理旧的项目 |
+| 📋 备份区大小策略 | 未满情况下，假设保留空间 >= max_disk \*  %5，最大备份区 <= max_disk \* %15，用户手动配置需要提示可扩容空间（1,max），max = min(disk_left - max_disk \* %5, max_disk \* %15 - cur_size) |
+| ⚠️ 隔离区写满策略 | 同备份区策略 |
+| ⚠️ 隔离区大小策略 | 同备份区策略 |
+| ✅ IP 黑名单容量 | 手动 64 条 + 自动 64 条；自动条目超上限时覆盖最旧（FIFO，已实现） |
+| ✅ IP 白名单容量 | 上限 64 条 |
+| ✅ 用户黑/白名单容量 | 各上限 64 条 |
+| ✅ 例外路径长度上限 | 例外文件 / 例外文件夹路径长度限制 4096 |
+| 📋 阻断事件显示上限 | 显示最近192条记录 |
+| 📋 勒索事件显示上限与 CSV 归档 | events 表仅保留最近 10000 条 / 30 天，超出每日归档为 CSV 后删库：当日无事件不生成 CSV（1 条系统日志）；≤10000 生成 1 个 CSV；>10000 按每文件最多 10000 条拆分多个 CSV；每个 CSV 输出已处理/未处理两条系统日志，csv压缩 |
+| 📋 隔离事件显示上限与 CSV 归档 | 同勒索事件 |
+
+***
