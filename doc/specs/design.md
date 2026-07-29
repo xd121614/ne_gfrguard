@@ -475,7 +475,7 @@ SQLite (`<store_path>/index.db`)：
 | `cloud_task_configs` | 云同步任务配置 (event_id, task_name, expression, command, status, disabled_at, restored_at) —— 阻断时保存，恢复时读取 | 云连携 |
 | `local_block_events` | 本地阻断审计 (event_id, pid, comm, cmdline, exe_path, risk_score, block_action, blocked_at) | 本地 |
 
-### 3.10. 规则升级（FR-RULE-03，规划）
+### 3.10. 规则升级（FR-RULE-UPDATE-01，规划）
 
 `gfrguard-rule-update` 为独立 CLI，由管理员或 webservice 按需触发，**不常驻**。升级流程：
 
