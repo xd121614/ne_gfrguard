@@ -58,7 +58,7 @@
 | --- | --- |
 | ✅ 例外文件 | 例外文件一览，新增/删除；例外文件不参与评分与拦截 |
 | ✅ 例外文件夹 | 例外文件夹一览，新增/删除；目录整体排除于监控与评分 |
-| ⚠️ 文件/文件夹 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+| ⚠️ 文件/文件夹 | /mnt/storage/filter/home/testuser/aaa/1.txt -> [testuser]\aaa\1.txt |
 
 ## 7. 事件记录
 
