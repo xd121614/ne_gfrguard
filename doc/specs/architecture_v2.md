@@ -1,8 +1,8 @@
-# GF2000 APPCHECK 软件架构文档
+# GF2000 AR 软件架构文档
 
 | 项目 | 内容 |
 |---|---|
-| 文档编号 | GF2000_APPCHECK_SA_01 |
+| 文档编号 | GF2000_AR_SA_01 |
 | 版本号 | V1.0 |
 | 编制日期 | 2026-07-22 |
 
@@ -10,7 +10,7 @@
 
 ### 1.1 目的
 
-本文描述 GF2000 APPCHECK（下称 GFRGuard）的软件架构，回答以下问题：
+本文描述 GF2000 AR 的软件架构，回答以下问题：
 
 1. 四类文件访问事件（SAMBA / 云联携 / FTP / 本地）如何被拦截、归一化并送入统一策略管线
 2. 策略管线的处理流程，修改前前像、会话评分、阻断和恢复如何协作
@@ -310,35 +310,26 @@ flowchart TB
 | mkdirat | 检查 blocked 并上报新建目录事件 |
 | close | 对最多 64 MiB 的前像/当前文件做全量 FNV-1a 比对，上报 CLOSE |
 
-时序图：
 
 ```mermaid
-sequenceDiagram
-	participant CL as SMB 客户端
-	participant VFS as vfs_gfrguard.so
-	participant NEXT as Samba 下层<br/>NEXT_*
-	participant STORE as backup store
-	participant DMN as gfrguardd
 
-	CL->>VFS: openat / pwrite / ftruncate<br/>renameat / unlinkat / mkdirat
-	VFS->>VFS: 检查 blocked（mtime 失效缓存）
-	alt blocked 命中
-		VFS-->>CL: EACCES + VFS_BLOCKED 遥测
-	else 破坏性操作
-		VFS->>STORE: 前像备份 first copy wins
-		alt 备份失败 且 strict
-			VFS-->>CL: ENOSPC / EACCES
-		else 成功 / permissive
-			VFS->>NEXT: 直通业务操作
-		end
-	else 非破坏性操作
-		VFS->>NEXT: 直通业务操作
+flowchart TB
+	START([勒索攻击开始]) --> ACT[覆盖写 / 批量重命名 / 批量删除 / 跨目录扩散]
+	subgraph PRE["拦截与前像备份"]
+		ACT --> INT[VFS拦截文件操作]
+		INT --> BKFULL{备份区是否写满？}
+		BKFULL -->|是| BKCLEAN["自动清理：超过最大备份天数/比例<br/>→ 删除最旧备份文件，直至低于上限<br/>"]
+		BKCLEAN --> BKRETRY{清理后空间足够？}
+		BKRETRY -->|是| BAK[前像写入备份区]
+		BKRETRY -->|仍不足| BKFAIL{strict 模式？}
+		BKFULL -->|否| BAK
+		BKFAIL -->|是| DENY[拒绝本次操作 ENOSPC<br/>文件保持原样]
+		BKFAIL -->|否| PASS[放行操作<br/>记录 BACKUP_FAILED<br/>该文件失去前像保护]
+		BAK --> REPORT[事件上报 daemon]
+		DENY --> REPORT
+		PASS --> REPORT
 	end
-	VFS-)DMN: AF_UNIX DGRAM 事件上报
-	CL->>VFS: close
-	VFS->>VFS: 前像 vs 当前 FNV-1a ≤64MiB
-	VFS-)DMN: CLOSE / CONTENT_SAME
-	DMN->>DMN: process_msg 会话评分（见 7.3）
+
 ```
 
 #### 7.2.2 fanotify通道
@@ -353,27 +344,6 @@ FTP、云联携、本地三类通道不经过 Samba，统一改用 Linux 内核�
 | notification fd | daemon 主循环 drain | 处理 CLOSE_WRITE、MODIFY、CREATE、DELETE、MOVE 等异步事件 |
 | socketpair | permission 线程 → 主线程 | 把归一化消息交给统一 `process_msg`，避免在线程中修改会话/数据库 |
 
-时序图：
-
-```mermaid
-sequenceDiagram
-	participant P as FTP/Cloud/Local Process
-	participant K as Linux fanotify
-	participant T as Permission Thread
-	participant H as Channel Handler
-	participant Q as SOCK_DGRAM socketpair
-	participant M as Main Thread
-
-	P->>K: open monitored path
-	K->>T: FAN_OPEN_PERM
-	T->>H: identify channel/process/session
-	H-->>T: allow or deny + normalized event
-	T->>K: FAN_ALLOW/FAN_DENY
-	T-)Q: enqueue rguard_event_msg
-	Q-)M: epoll readable
-	M->>M: process_msg
-```
-
 通知归一化：
 
 | 内核事件 | 归一化事件 | 关键标志/处理 |
@@ -384,6 +354,23 @@ sequenceDiagram
 | DELETE | DELETE | 事后检测；内核无删除 permission 事件 |
 | FAN_RENAME | RENAME | 解析 OLD_DFID_NAME 与 NEW_DFID_NAME；保留源路径、目标完整路径和目标名用于扩展名分析 |
 
+```mermaid
+
+flowchart TB
+	START([勒索攻击开始]) --> ACT[覆盖写 / 批量重命名 / 批量删除 / 跨目录扩散]
+	subgraph PRE["拦截与前像备份"]
+		ACT --> INT[fanotify拦截文件操作]
+		INT --> FAOPEN{ OPEN事件？}
+		FAOPEN --> |是| BKFULL{备份区是否写满？}
+		BKFULL -->|是| BKCLEAN["自动清理：超过最大备份天数/比例<br/>→ 删除最旧备份文件，直至低于上限<br/>"]
+		BKCLEAN --> BAK[前像写入备份区]
+		BKFULL -->|否| BAK
+		BAK --> REPORT[事件上报 daemon]
+		FAOPEN --> |否| REPORT
+	end
+
+```
+
 ### 7.3 策略层
 
 策略层完成一件事：回答"这个用户/进程的行为像不像勒索软件"。它接收拦截层上报的归一化事件，把同一来源（`username@client_ip`）在一段时间内的操作聚合为一个**会话**，在会话上累计行为计数（修改/重命名/删除/目录扩散），叠加内容信号（熵/YARA），算出风险分；分数越过 CRITICAL 阈值就阻断该会话并触发恢复。整个策略层运行在 daemon 主线程，不感知事件来自 SMB 还是 fanotify。
@@ -393,35 +380,41 @@ sequenceDiagram
 主流程即 `process_msg`：所有通道的事件在这里汇成一条处理管线——先过滤（开关、黑白名单、例外），再归属会话、触发内容分析、更新滑动窗口并评分，最后按分数决定记录或阻断。
 
 ```mermaid
-sequenceDiagram
-	participant IN as 事件来源<br/>DGRAM / socketpair / notify
-	participant M as process_msg
-	participant S as session + scorer
-	participant C as entropy / YARA
-	participant DB as PostgreSQL
-	participant B as blocker
-
-	IN->>M: rguard_event_msg
-	alt VFS_BLOCKED 遥测
-		M->>DB: 记录事件并返回
-	else 开关 / 扩展名 / 例外 / 白名单 拦截
-		M-->>IN: 丢弃，不评分
-	else blacklist 命中
-		M->>B: 立即标记会话并阻断
-	else 正常事件
-		M->>S: 获取/创建 session + event_id
-		M->>DB: 持久化 BACKED_UP / BACKUP_FAILED
-		M->>M: 扩展名变化与勒索扩展名分析
-		opt 命中内容信号条件
-			M->>C: 同步 entropy / YARA（主线程）
-		end
-		M->>S: 滑动窗口更新 + scorer_calculate
-		M->>DB: 记录 NEW_FILE / 事件统计
-		opt CRITICAL 且未阻断
-			M->>B: blocker + 自动黑名单持久化
-			M->>M: fork 延迟恢复（见 7.4）
-		end
+flowchart TB
+	subgraph SCORE["① 行为统计与评分"]
+		REPORT --> DIMS[行为维度计数<br/>修改 / 重命名 / 删除<br/>目录扩散 / 扩展名变化]
+		DIMS --> SIG[内容信号：高熵 / YARA<br/>]
+		SIG --> EVID[定性证据：勒索扩展名<br/>]
+		EVID --> LEVEL{风险等级}
 	end
+
+	LEVEL -->|正常 / 可疑| MON[更新风险等级，继续监控<br/>业务不受影响]
+	LEVEL -->|极危| BLOCK[阻断会话<br/>断开连接 / 拒绝写入 / 终止进程<br/>状态 = Blocked]
+
+	subgraph AUTO["② 自动恢复"]
+		BLOCK --> R1[按 event_id 圈定范围]
+		R1 --> QFULL{隔离区是否写满？}
+		QFULL -->|是| QCLEAN["自动循环删除最旧隔离文件<br/>直至低于上限"] --> QIN
+		QFULL -->|否| QIN[事件窗口内新建文件<br/>→ 移入隔离区]
+		QIN --> R2[被破坏文件<br/>用备份区前像写回原路径]
+		R2 --> RRES[恢复结果入库，WebUI 展示<br/>保持 Blocked，不自动解除]
+	end
+
+	subgraph MANUAL["③ 手动恢复"]
+		RRES --> ADMIN{管理员 WebUI 确认}
+		ADMIN -->|补充恢复| M1[手动执行 gfrguard-recover<br/>从备份区前像还原指定文件]
+		ADMIN -->|隔离区处置| M2{隔离文件如何处理？}
+		M2 -->|误报| M3[从隔离区还原到原路径]
+		M2 -->|确认为恶意| M4[删除隔离文件<br/>释放隔离区空间]
+		M2 -->|取证| M5[导出样本分析后删除]
+		ADMIN -->|确认处置完毕| M6[手动解除 Blocked<br/>会话恢复正常访问]
+	end
+
+	M1 --> M6
+	M3 --> M6
+	M4 --> M6
+	M5 --> M6
+	M6 --> DONE([攻击处置结束])
 ```
 
 #### 7.3.2 会话状态
