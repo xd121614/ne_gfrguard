@@ -106,7 +106,7 @@ flowchart LR
 		end
 		ENG["③ 反勒索引擎<br/>行为统计 + 风险评分 0~100<br/>+ 内容信号（熵 / YARA）"]
 		BAK[("④ 安全备份区<br/>原件前像 + 操作记录")]
-		MGT["⑤ 恢复与管理<br/>文件恢复 / 告警通知 / WebUI"]
+		MGT["⑤ 恢复与管理<br/>文件恢复 / 文件隔离 / 告警通知 / WebUI"]
 	end
 
 	PC --> VFS
@@ -690,7 +690,7 @@ flowchart LR
 
 	POL["rguard-policy.json<br/>策略 / 阈值 / 黑白名单"]
 	YARA["yara-rules/<br/>内容特征规则"]
-	BLK["blocked 文件<br/>SMB/FTP 阻断列表"]
+	BLK["blocked 文件<br/>SMB 阻断列表"]
 	WEB[webservice 只读查询]
 	RECV[gfrguard-recover]
 
@@ -731,7 +731,7 @@ flowchart LR
 | `<store>/backups/<share>/<relative>` | 最早前像 |
 | `<store>/quarantine/<event>/...` | 恢复前隔离的当前版本 |
 | `/run/gfrguardd/gfrguardd.sock` | VFS 事件 DGRAM |
-| `/run/gfrguardd/blocked` | SMB/FTP IP 阻断列表 |
+| `/run/gfrguardd/blocked` | SMB IP 阻断列表 |
 | `/var/log/gfrguard/gfrguard.log` | 结构化事件日志 |
 
 ## 10. 大小和性能
