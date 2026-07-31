@@ -172,14 +172,14 @@ flowchart LR
 
 | 用例 | 当前代码路径 | 状态 |
 |---|---|---|
-| UC-1 前像备份 | VFS（gf_open / gf_truncate / gf_unlink / ...） / Fanotify（open）拦截文件操作事件 → `do_backup` → DGRAM 上报 | 已实现 |
-| UC-2 同内容覆盖降噪 | `gf_close` 前像/当前文件哈希 → CONTENT_SAME → session 撤销 modified → scorer 限分 | 已实现 |
-| UC-3 批量勒索行为阻断 | WRITE/RENAME/DELETE/目录扩散/扩展名/内容信号 → 会话评分 → CRITICAL | 已实现 |
-| UC-4 FTP 文件事件检测 | fanotify 通道识别 vsftpd、归一化事件、权限拒绝及进程阻断 | 已实现 |
-| UC-5 云联携扩散控制 | 识别云任务、使用独立长窗口、删除/禁用任务并记录配置 | 部分实现，依赖平台命令和配置 |
-| UC-6 本地进程阻断 | `/proc` 身份解析、PID starttime 防复用、会话阻断后终止进程 | 已实现 |
-| UC-7 自动恢复 | CRITICAL → fork → 延迟 exec `gfrguard-recover restore --event` | 已实现 |
-| UC-8 配置/规则热重载 | SIGHUP 重读 JSON、同步 blocked、重建 marks、reload YARA | 已实现 |
+| UC-1 前像备份 | VFS（gf_open / gf_truncate / gf_unlink / ...） / Fanotify（open）拦截文件操作事件 → `do_backup` → DGRAM 上报 | 规划 |
+| UC-2 同内容覆盖降噪 | `gf_close` 前像/当前文件哈希 → CONTENT_SAME → session 撤销 modified → scorer 限分 | 规划 |
+| UC-3 批量勒索行为阻断 | WRITE/RENAME/DELETE/目录扩散/扩展名/内容信号 → 会话评分 → CRITICAL | 规划 |
+| UC-4 FTP 文件事件检测 | fanotify 通道识别 vsftpd、归一化事件、权限拒绝及进程阻断 | 规划 |
+| UC-5 云联携扩散控制 | 识别云任务、使用独立长窗口、删除/禁用任务并记录配置 | 规划 |
+| UC-6 本地进程阻断 | `/proc` 身份解析、PID starttime 防复用、会话阻断后终止进程 | 规划 |
+| UC-7 自动恢复 | CRITICAL → fork → 延迟 exec `gfrguard-recover restore --event` | 规划 |
+| UC-8 配置/规则热重载 | SIGHUP 重读 JSON、同步 blocked、重建 marks、reload YARA | 规划 |
 | UC-9 邮件告警 | 事件进入邮件队列并定时汇总发送 | 规划 |
 | UC-10 签名规则升级 | 校验离线/在线规则包并原子替换 | 规划 |
 
@@ -744,8 +744,9 @@ GF2000 是 NAS 设备，内存占用必须可预期——与受保护数据的�
 
 | 资源 | 占用 | 说明 |
 |---|---|---|
-| 程序磁盘 | 三个二进制合计约 0.5 MB；YARA 规则、策略 JSON 为 KB 级 | 可忽略 |
-| 状态磁盘 | PostgreSQL 只记事件与文件索引，行级增长 | 有硬上限：仅保留最近 10000 条 / 30 天事件，超出部分每日归档为 CSV（见 10.2.3） |
+| 程序 | 三个二进制合计约 0.5 MB；YARA 规则、策略 JSON 为 KB 级 | 可忽略 |
+| 事件 | PostgreSQL 只记事件与文件索引，行级增长 | 增长与事件量线性相关，最多10000条事件 |
+| 日志文件 | 超出页面显示部分需要存csv文件，用户手动删除 | 每10000条/天存储一个csv文件，无上限 |
 | 前像与隔离区 | **系统唯一的磁盘大头** | 备份区默认100GB，隔离区默认50GB |
 
 #### 10.2.1 单文件前像大小限制
@@ -790,4 +791,3 @@ GF2000 是 NAS 设备，内存占用必须可预期——与受保护数据的�
 | 事件上报（VFS → daemon） | 不得阻塞 smbd | AF_UNIX DGRAM fire-and-forget，EAGAIN 有限重试后丢弃 | 微秒级开销；洪泛超限丢事件，损失检测覆盖率而非业务吞吐 |
 | fanotify permission 应答（含前像备份） | 应答时延 = 业务进程 open 被内核挂起的时间；`FAN_OPEN_PERM` 无法区分读写意图（见 7.2.2），对每次 open 先同步执行首拷备份再应答 | 独立线程；first-copy-wins（O_EXCL 去重）；reflink → copy_file_range → read/write 降级；禁止无界内容扫描；故障优先放行 | FTP/云/本地每次 open 增加一次备份检查时延：reflink 下微秒级；降级为整文件拷贝时与文件大小成正比——单文件前像上限（见 10.2.1）同时是该时延的硬封顶 |
 | daemon 主循环 | YARA / CLOSE 哈希 / DB 写入均在主线程 | 已知吞吐瓶颈；慢操作推迟所有通道处理（见 7.3） | 决定事件处理吞吐上限；不反向限制客户端 |
-| 首次数据导入（批量拷入历史数据） | 部署后最常见的高负载时刻 | 新建文件不产生前像复制；CONTENT_SAME 降噪 + 延迟评分（等 CLOSE 再算分）防误报阻断 | 基本无感：同步路径仅多一次 blocked 缓存检查 + 一次 DGRAM 上报 |
