@@ -45,8 +45,7 @@
 
 | 文档 | 用途 |
 |---|---|
-| `requirements.md` | 需求说明 |
-| `design.md` | 设计说明 |
+| GF2000_AppCheck_开发提案_V2.6.pptx | 开发提案，作为架构开发参考 |
 | Linux `fanotify(7)` | 非 SMB 通道内核接口 |
 | Samba VFS API | SMB 回调 ABI |
 
@@ -56,18 +55,17 @@
 
 | 项目 | 规格 |
 |---|---|
-| 核心语言 | C17 |
-| 管理面 | webservice：Python 3 + Flask |
+| 核心语言 | C17 + Rust1.97.1 + Go1.23.12 |
+| 管理面 | webservice：net/http + chi router |
 | 目标平台 | GF2000 NAS，Linux，x86-64（Yocto poky `corei7-64` 目标） |
 | 进程形态 | smbd 内嵌 VFS 模块 + root 守护进程 + 恢复工具 + 升级工具 + Flask webservice |
 | 内核接口 | fanotify API |
-| 外部库 | libpq、libyara、pthread、libm |
+| FFI库 | libyara |
 
 ### 2.2 技术选型
 
 | 选型 | 理由 |
 |---|---|
-| C17 单一代码库 | VFS 模块运行在 smbd 进程地址空间内，daemon 以 root 常驻；C 无运行时依赖，启动快、内存可预期 |
 | Samba VFS 模块 | SMB 拦截的唯一客户端透明方案；不改 Samba 源码，不维护内核补丁 |
 | fanotify 而非内核模块/eBPF | 内核原生接口，无需 out-of-tree 模块，权限事件可同步应答 ALLOW/DENY |
 | PostgreSQL（复用平台既有实例） | 客户系统既有持久化数据库，跟随平台选型、不引入新存储组件；GFRGuard 使用独立 database |
@@ -85,8 +83,6 @@ GFRGuard 为 GF2000 共享存储提供反勒索能力，核心功能四项：
 | 实时原件备份 | 既有文件被覆盖、截断或删除前，自动将原件保存到安全备份区。即使文件随后被加密，也可随时恢复原始版本 |
 | 自动阻断 | 依据会话风险评分分级处置：达到极危时自动断开 SMB 连接、拒绝 FTP/云/本地通道后续写入、终止可疑进程，阻止破坏扩散 |
 | 恢复与告警 | 自动从备份区恢复受影响文件；WebUI 可视化管理，管理员实时掌握风险事件与处置结果 |
-
-防护覆盖四条写入路径：SMB 网络共享、FTP、云连携同步（Google Drive / OneDrive 等，防止云端被加密文件反向污染本地）、本机进程直接写入。
 
 ### 3.2 功能拓扑
 
@@ -486,7 +482,6 @@ $$
 |---|---|
 | 统计窗口 | 云连携通道使用独立的更长窗口（默认短 60s / 长 180s），因为云同步事件受 API 限速、到达慢，全局短窗口会在积累到阻断分数前就把计数清零；其余通道用全局窗口 |
 | CONTENT_SAME | 只有 SMB 通道有前像可比对，同内容降噪规则实际只对 SMB 生效；fanotify 通道该计数恒为 0，规则自然不触发 |
-| 延迟评分 | 无高风险标志的 OPEN/WRITE/TRUNCATE 不立即评分，等 CLOSE / RENAME / DELETE 或勒索扩展名、高熵、YARA 任一标志出现时再算，降低批量同内容写误报；各通道行为一致 |
 
 #### 7.3.4 内容信号的实际触发
 
@@ -574,7 +569,7 @@ sequenceDiagram
 
 #### 7.4.3 PostgreSQL 持久化
 
-PostgreSQL（平台既有实例中的独立 database）承担系统状态的唯一可信来源：每次风险事件、每个被保护文件与其前像的对应关系、恢复进度，都记录在此——恢复工具据此知道"该还原哪些文件"，webservice 据此向管理员展示事件详情。实现状态：当前代码为 SQLite 实现，下同的 schema 与所有权边界在迁移到 PostgreSQL 后不变。
+PostgreSQL（平台既有实例中的独立 database）承担系统状态的唯一可信来源：每次风险事件、每个被保护文件与其前像的对应关系、恢复进度，都记录在此——恢复工具据此知道"该还原哪些文件"，webservice 据此向管理员展示事件详情。
 
 表结构见 9.1，本节只说明所有权与一致性边界：
 
@@ -709,25 +704,14 @@ flowchart LR
 	RECV -->|前像写回原路径| BKP
 ```
 
-### 9.2 协议
-
-`rguard_event_msg` 是本机 ABI 风格固定结构：
-
-- 携带 message/op/flags、时间、inode/size/mtime/uid/gid/mode；
-- 携带 username、client_ip、share_name、绝对 file_path 和 new_name；
-- 携带 source_type 和 proto_version；
-- 新 daemon 接受版本 0 和当前版本，丢弃高于自身版本的消息；
-- socket 权限允许外部写入，接收端会强制字符串末尾 NUL，但没有发送方认证。
-
-该 socket 是安全边界：本机低权限进程可能伪造事件并影响评分、数据库和阻断。部署应收紧 Unix socket 权限或增加凭据校验（如 `SO_PASSCRED`）。
-
-### 9.3 文件布局
+### 9.2 文件布局
 
 | 路径 | 内容 |
 |---|---|
 | `/etc/gf2000/rguard-policy.json` | daemon 策略 |
 | `/etc/gf2000/yara-rules/` | YARA 规则目录 |
-| 平台 PostgreSQL 实例（独立 database `rguard`） | 事件 / 文件索引 / 恢复状态，数据目录由平台统一管理 |
+| `/etc/gf2000/ransom-extensions.json` | 勒索扩展名规则 |
+| `/etc/gf2000/rguard-scoring.json` | 勒索打分规则 |
 | `<store>/backups/<share>/<relative>` | 最早前像 |
 | `<store>/quarantine/<event>/...` | 恢复前隔离的当前版本 |
 | `/run/gfrguardd/gfrguardd.sock` | VFS 事件 DGRAM |
