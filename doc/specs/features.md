@@ -26,7 +26,7 @@
 
 | 特性 | 说明 |
 | --- | --- |
-| ⚠️ 隔离区路径 | 隔离区存储路径（默认 `/var/lib/gf2000/rguard-store/quarantine`） |
+| ⚠️ 隔离区路径 | 隔离区存储路径（默认 `/mnt/storage/filer/rguard-store/quarantine`） |
 | 📋 隔离区容量配置 | 默认 50GB；启动探测 XFS Project Quota，支持则 quota 硬上限 + `mount --bind`，不支持则 img fallocate 物理预占 + loop 挂载，两条路径汇合到同一挂载点 |
 | 📋 隔离区写满策略 | （语义见第 8 章边界与容量限制） |
 | 📋 使用情况展示 | 已用容量 / 总容量与百分比 |
@@ -36,7 +36,7 @@
 
 | 特性 | 说明 |
 | --- | --- |
-| ⚠️ 备份区路径 | 备份区存储路径（默认 `/var/lib/gf2000/rguard-store/backups`） |
+| ⚠️ 备份区路径 | 备份区存储路径（默认 `/mnt/storage/filer/rguard-store/backups`） |
 | 📋 备份区容量配置 | 默认 100GB；容量实现与隔离区相同（quota / loop 双路径） |
 | 📋 单文件备份大小限制 | 可选档位 100MB/200MB/500MB/1GB/2GB/5GB，默认不限制；超限文件跳过前像、事件照常评分并标记"不受前像保护"，不阻断业务 |
 | 📋 备份区写满策略 | （语义见第 8 章边界与容量限制） |
@@ -58,7 +58,7 @@
 | --- | --- |
 | ✅ 例外文件 | 例外文件一览，新增/删除；例外文件不参与评分与拦截 |
 | ✅ 例外文件夹 | 例外文件夹一览，新增/删除；目录整体排除于监控与评分 |
-| 📋 文件/文件夹 | /mnt/storage/filter/home/testuser/aaa/1.txt -> [testuser]\aaa\1.txt，public直接显示，不用[public]修饰 |
+| 📋 文件/文件夹 | /mnt/storage/filter/home/testuser/aaa/1.txt -> [testuser]\\aaa\\1.txt，public直接显示，不用[public]修饰 |
 
 ## 7. 事件记录
 
@@ -71,7 +71,7 @@
 | 📋 事件筛选与清除 | 按时间范围/用户名/客户端IP/风险评分阈值/检测类型组合筛选 |
 | ✅ 事件级恢复 | 对事件执行恢复：还原被覆盖文件 + 清理勒索新建文件；"手动恢复"模式下由页面触发 |
 | 📋 文件详情 | 事件内逐文件明细：动作类型（覆盖/新建）、恢复状态、文件大小、文件路径 |
-| ⚠️ 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+| 📋 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> [testuser]\\aaa\\1.txt，public直接显示，不用[public]修饰 |
 | 📋 导出 CSV | 导出当前筛选结果 |
 
 ### 7.2 隔离区
@@ -81,7 +81,7 @@
 | 📋 隔离事件列表 | 日期、检测类型、用户、客户端IP、隔离时间、文件数；支持时间/用户/IP/检测类型/文件名路径筛选 |
 | 📋 从隔离区恢复 / 删除 | 事件级恢复隔离文件，或彻底删除 |
 | 📋 隔离文件详情 | 逐文件勾选，恢复所选 / 删除所选，按文件名/路径检索 |
-| ⚠️ 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> 增加用户列testuser + home￥aaa￥1.txt or [testuser]￥aaa￥1.txt |
+| 📋 文件路径 | /mnt/storage/filter/home/testuser/aaa/1.txt -> [testuser]\\aaa\\1.txt，public直接显示，不用[public]修饰 |
 
 ### 7.3 阻断链接
 
